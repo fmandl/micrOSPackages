@@ -8,6 +8,12 @@ Short description about the application...
 pacman install "<package-url>"
 ```
 
+> Uninstall:
+
+```
+pacman uninstall "<package-name>"
+```
+
 > Everything will be installed under `/lib/<package-app-name>/*` and `/modules/LM_*`
 
 ## MicroPython Docs `package.json` structure and `mip`
@@ -32,6 +38,8 @@ pacman install "<package-url>"
 ```commandline
 <app_name> do
 ```
+
+[documentation](https://htmlpreview.github.io/?https://github.com/BxNxM/micrOS/blob/master/micrOS/client/sfuncman/sfuncman.html)
 
 ## Dependencies
 

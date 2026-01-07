@@ -5,8 +5,15 @@ Short description about the application...
 ## Installation
 
 ```
-pacman download "github:BxNxM/micrOSPackages/async_oledui"
+pacman install "github:BxNxM/micrOSPackages/async_oledui"
 ```
+
+> Uninstall:
+
+```
+pacman uninstall "async_oledui"
+```
+
 
 > Everything will be installed under `/lib/async_oledui/*` and `/modules/LM_*`
 
@@ -31,6 +38,8 @@ oledui popup msg='text'
 oledui cancel_popup
 oledui genpage cmd='system clock'
 ```
+
+[documentation](https://htmlpreview.github.io/?https://github.com/BxNxM/micrOS/blob/master/micrOS/client/sfuncman/sfuncman.html#oledui)
 
 ## Dependencies
 

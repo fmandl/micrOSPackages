@@ -1,11 +1,17 @@
-# micrOS Application: blinky_example
+# micrOS Application: blinky\_example
 
 Short description about the application...
 
 ## Installation
 
 ```
-pacman download "github:BxNxM/micrOSPackages/blinky_example"
+pacman install "github:BxNxM/micrOSPackages/blinky_example"
+```
+
+> Uninstall:
+
+```
+pacman uninstall "blinky_example"
 ```
 
 > Everything will be installed under `/lib/blinky_example/*` and `/modules/LM_*`
