@@ -1,0 +1,18 @@
+{
+    "version": "0.0.1",
+    "urls": [
+        [
+            "keychaindemo/__init__.py",
+            "github:BxNxM/micrOSPackages/keychaindemo/package/__init__.py"
+        ],
+        [
+            "LM_keychain.py",
+            "github:BxNxM/micrOSPackages/keychaindemo/package/LM_keychain.py"
+        ],
+        [
+            "keychaindemo/pacman.json",
+            "github:BxNxM/micrOSPackages/keychaindemo/package/pacman.json"
+        ]
+    ],
+    "deps": []
+}
