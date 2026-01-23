@@ -61,12 +61,14 @@ def copy_package_resources(local_packages):
             print(f"Error copying {source_path} to {target_path}: {e}")
 
 
-def post_install(lib_path:Path, package_name:str) -> list:
+def post_install(lib_path:Path, package_name:str) -> tuple[list, list]:
     """
-    MICROS ON-DEVICE SIDE - post install simulation
+    MICROS ON-DEVICE SIDE - post install simulation + load module name collection (ext package mapping)
+    returns: overwritten_files, load_modules_list
     """
     pacman_json_path = lib_path / package_name / "pacman.json"
     overwrites = []
+    ext_load_modules = []
     if pacman_json_path.is_file():
         # NEW pacman.json['layout'] based package management (unpack, etc...)
         print("[Unpack] micrOS on device LM unpack from pacman.json")
@@ -85,7 +87,9 @@ def post_install(lib_path:Path, package_name:str) -> list:
                 if target_abs_path.is_file():
                     overwrites.append(str(target_abs_path).replace(str(lib_path.parent), ""))
                 shutil.move(source_abs_path, target_abs_path)
-    return overwrites
+                if s.startswith("LM_"):
+                    ext_load_modules.append(s)
+    return overwrites, ext_load_modules
 
 
 # --- the caching decorator (one main folder per ref@version) ---
@@ -194,7 +198,7 @@ def download_deps(deps:list, target_path:Path):
         _install_dep(ref, version, target_path)
 
 
-def unpack_package(package_path:Path, target_path:Path):
+def unpack_package(package_path:Path, target_path:Path) -> tuple[list, list]:
     """
     1. Create target_path folder
     2. Parse package.json from package_path/package.json
@@ -239,8 +243,8 @@ def unpack_package(package_path:Path, target_path:Path):
     except Exception as e:
         print(f"❌ 3PP DEP install failed: {e}")
     # PACMAN.JSON
-    overwrites = post_install(target_dir_lib, package_path.name)
-    return overwrites
+    overwrites, load_modules = post_install(target_dir_lib, package_path.name)
+    return overwrites, load_modules
 
 
 def unpack_all(target:Path=None):
@@ -252,10 +256,14 @@ def unpack_all(target:Path=None):
         target = DEFAULT_UNPACKED_DIR
     print(f"UNPACK ALL PACKAGES FROM {REPO_ROOT}")
     all_overwrites = []
+    all_lm_names = []
     for pkg in find_all_packages(REPO_ROOT):
-        all_overwrites += unpack_package(Path(pkg), target)
+        overwrites, load_modules = unpack_package(Path(pkg), target)
+        all_overwrites += overwrites
+        all_lm_names += load_modules
     print(f"[UNPACK] Overwritten from packages: {all_overwrites}")
-    return all_overwrites
+    print(f"[UNPACK] Available Load Modules: {all_lm_names}")
+    return all_overwrites, all_lm_names
 
 
 if __name__ == "__main__":
