@@ -1,11 +1,16 @@
 # micrOS Application: async\_mqtt
 
-Short description about the application...
+micrOS MQTT Module is an asynchronous messaging and remote control layer for MicroPython
+devices that connects them to an MQTT broker for real-time communication.
+It enables secure publishing and subscription to device-specific topics,
+executes load module commands from incoming messages, and automatically returns
+JSON-formatted responses, making micrOS devices easy to monitor, automate,
+and control over the network.
 
 ## Installation
 
 ```
-pacman download "github:BxNxM/micrOSPackages/async_mqtt"
+pacman install "github:BxNxM/micrOSPackages/async_mqtt"
 ```
 
 > Uninstall:
@@ -37,6 +42,8 @@ mqtt_client publish topic:str message:str retain=False
 [documentation](https://htmlpreview.github.io/?https://github.com/BxNxM/micrOS/blob/master/micrOS/client/sfuncman/sfuncman.html#mqtt_client)
 
 ## Dependencies
+
+Autoinstalled external dependency
 
 ```
 github:peterhinch/micropython-mqtt

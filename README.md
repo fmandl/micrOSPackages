@@ -11,12 +11,14 @@ micrOS devices can install these packages from GitHub or from a local mip server
 
 # 📦 Package Catalog
 
-|                    PFOJECT                   |                SHORT DESCRIPTION     |
-| ---------------------------------------------| ------------------------------------ | 
-| [blinky_example](./blinky_example/README.md) | Simple package example. Implements basic Pin.OUT operations.
-| [async_mqtt](./async_mqtt/README.md)         | Async MQTT client with micrOS Notifications integration.
-| [async_oledui](./async_oledui/README.md)     | SSD1306 and sh1106 OLED display plug-n-play GUI with trackball support.
-| []() | Add your own.
+| PFOJECT                                        |                SHORT DESCRIPTION     |
+|------------------------------------------------| ------------------------------------ | 
+| [blinky_example](./blinky_example/README.md)   | Simple package example. Implements basic Pin.OUT operations.
+| [async_mqtt](./async_mqtt/README.md)           | Async MQTT client with micrOS Notifications integration.
+| [async_oledui](./async_oledui/README.md)       | SSD1306 and sh1106 OLED display plug-n-play GUI with trackball support.
+| [neopixel_matrix](./neopixel_matrix/README.md) | Neopixel 8x8 LED matrix animations and web control (draw, control, etc.) 
+| [keychaindemo](./keychaindemo/README.md)       | 16x32 ssd1306 OLED - esp32c3 mini keychain demo with ds18 temperature sensor. 
+| []()                                           | Add your own.
 
 
 ---

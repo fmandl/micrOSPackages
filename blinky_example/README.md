@@ -1,6 +1,10 @@
 # micrOS Application: blinky\_example
 
-Short description about the application...
+LM_Blinky is a simple micrOS load module that provides basic,
+remote-controllable LED management for MicroPython devices.
+It lets users initialize a GPIO pin and turn an LED on, off, toggle its state,
+or run timed blink sequences through the micrOS shell or web interface,
+making it ideal for hardware testing, demos, and quick feedback in embedded projects.
 
 ## Installation
 
