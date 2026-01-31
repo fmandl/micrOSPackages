@@ -140,25 +140,27 @@ class NeoPixelMatrix(AnimationPlayer):
 ##########################################################################################################
 # --- Example usage with micrOS framework ---
 
-def load(width=8, height=8):
+def load(width=8, height=8, neop=14, i2c_sda=11, i2c_scl=12):
     """
-    Load NeoPixelMatrix instance. If not already loaded
+    Load NeoPixelMatrix instance.
+    :param width: neopixel matrix width (default: 8)
+    :param height: neopixel matrix height (default: 8)
+    :param neop: neopixel pin number (default: 14)
+    :param i2c_sda: i2c bus data pin number (default: 11) for QMI8658C GYRO
+    :param i2c_scl: i2c bus clock pin number (default: 12) for QMI8658C GYRO
+
+    ESP32-S3 Matrix 8x8 RGB-LED WiFi Bluetooth With QST Attitude Gyro Sensor QMI8658C
+      https://spotpear.com/shop/ESP32-S3FH4R2-Matrix-8x8-RGB-LED-WiFi-Bluetooth-QST-Attitude-Gyro-Sensor-QMI8658C-Arduino-Python-ESP-IDF.html
     """
     if NeoPixelMatrix.INSTANCE is None:
-        NeoPixelMatrix(width=width, height=height, pin=bind_pin('neop'))
-        web_endpoint('matrixDraw', _web_endpoint_clb)
+        NeoPixelMatrix(width=width, height=height, pin=bind_pin('neop', neop))
+        web_endpoint('matrixDraw', 'matrix_draw.html')
+        # Overwrite i2c bus pins for neomatrix board for QMI8658C
+        bind_pin('i2c_sda', i2c_sda)
+        bind_pin('i2c_scl', i2c_scl)
+        # Set default builtin led (no built-in led on hw, external available...)
+        bind_pin('builtin', 1)
     return NeoPixelMatrix.INSTANCE
-
-
-def _web_endpoint_clb():
-    try:
-        with open(web_dir('matrix_draw.html'), 'r') as html:
-            html_content = html.read()
-        return 'text/html', html_content
-    except Exception as e:
-        syslog(f"[ERR] neomatrix web: {e}")
-        html_content = None
-    return 'text/plain', f'html_content error: {html_content}'
 
 
 def pixel(x, y, color=None, show=True):

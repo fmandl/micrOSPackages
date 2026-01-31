@@ -1,6 +1,6 @@
-# micrOS Application: neopixel_matrix
+# micrOS Application: neopixel\_matrix
 
-Short description about the application...
+8x8 LED Matrix Animation Player with draw web frontend.
 
 ## Installation
 
