@@ -389,18 +389,18 @@ def noise(speed_ms:int=85):
 
 
 def help(widgets=False):
-    return resolve(('load width=8 height=8',
-                             'pixel x y color=(10, 3, 0) show=True',
-                             'BUTTON clear',
-                             'COLOR color_fill r=<0-255-5> g=<0-255-5> b=<0-255-5>',
-                             'SLIDER brightness br=<0-60-2>',
-                             'BUTTON stop',
-                             'BUTTON snake speed_ms=50 length=5',
-                             'BUTTON rainbow',
-                             'BUTTON spiral speed_ms=40',
-                             'BUTTON noise speed_ms=85',
-                             'SLIDER control speed_ms=<1-200> bt_draw=None',
-                             'draw_colormap bitmap=[(0,0,(10,2,0)),(x,y,color),...]',
-                             'get_colormap',
-                             'status'
-                    ), widgets=widgets)
+    return resolve(('load width=8 height=8 neop=14 i2c_sda=11 i2c_scl=12',
+                     'pixel x y color=(10, 3, 0) show=True',
+                     'BUTTON clear',
+                     'COLOR color_fill r=<0-255-5> g=<0-255-5> b=<0-255-5>',
+                     'SLIDER brightness br=<0-60-2>',
+                     'BUTTON stop',
+                     'BUTTON snake speed_ms=50 length=5',
+                     'BUTTON rainbow',
+                     'BUTTON spiral speed_ms=40',
+                     'BUTTON noise speed_ms=85',
+                     'SLIDER control speed_ms=<1-200> bt_draw=None',
+                     'draw_colormap bitmap=[(0,0,(10,2,0)),(x,y,color),...]',
+                     'get_colormap',
+                     'status'), widgets=widgets)
+
