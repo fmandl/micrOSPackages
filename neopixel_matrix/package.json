@@ -1,5 +1,5 @@
 {
-    "version": "0.0.1",
+    "version": "0.0.2",
     "urls": [
         [
             "neopixel_matrix/effects.py",
@@ -12,10 +12,6 @@
         [
             "neopixel_matrix/__init__.py",
             "github:BxNxM/micrOSPackages/neopixel_matrix/package/__init__.py"
-        ],
-        [
-            "neopixel_matrix/IO_s3matrix.py",
-            "github:BxNxM/micrOSPackages/neopixel_matrix/package/IO_s3matrix.py"
         ],
         [
             "neopixel_matrix/pacman.json",

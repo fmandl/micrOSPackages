@@ -1,7 +1,7 @@
 {
     "versions": {
         "packager": "0.1.0",
-        "package": "0.0.1"
+        "package": "0.0.2"
     },
     "url": "github:BxNxM/micrOSPackages/neopixel_matrix",
     "layout": {
