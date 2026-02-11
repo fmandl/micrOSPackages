@@ -3,7 +3,7 @@
 
 # micrOS Packages Registry and Tools
 
-This repository contains multiple installable [micrOS](hhttps://github.com/BxNxM/micrOS) packages and applications.  
+This repository contains multiple installable [micrOS](https://github.com/BxNxM/micrOS) packages and applications.  
 Each package lives in its own folder and includes a **package.json** that is compatible with mip.  
 micrOS devices can install these packages from GitHub or from a local mip server. On top of package.json, micrOS packages includes a **pacman.json** for package life cycle management as well.
 
