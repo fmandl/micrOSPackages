@@ -2,7 +2,7 @@
 micrOS Application exposed functions
 
 For more coding details visit:
-    https://github.com/BxNxM/micrOS/blob/master/APPLICATION_GUIDE.md
+    https://github.com/BxNxM/micrOS/blob/master/micrOS/MODULE_GUIDE.md
 """
 
 from package import shared

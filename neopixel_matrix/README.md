@@ -22,7 +22,7 @@ pacman install "github:BxNxM/micrOSPackages/neopixel_matrix"
 ## micrOS Project
 
 [Project Docs](https://github.com/BxNxM/micrOS/tree/master)
-[Coding Docs](https://github.com/BxNxM/micrOS/blob/master/APPLICATION_GUIDE.md)
+[Coding Docs](https://github.com/BxNxM/micrOS/blob/master/micrOS/MODULE_GUIDE.md)
 
 ## Usage
 
