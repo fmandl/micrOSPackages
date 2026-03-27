@@ -19,6 +19,12 @@ pacman install "github:BxNxM/micrOSPackages/async_mqtt"
 pacman uninstall "async_mqtt"
 ```
 
+> Upgrade:
+
+```
+pacman upgrade "async_mqtt"
+```
+
 > Everything will be installed under `/lib/async_mqtt/*` and `/modules/LM_*`
 
 ## MicroPython Docs `package.json` structure and `mip`
