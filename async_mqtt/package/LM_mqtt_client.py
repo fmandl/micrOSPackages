@@ -10,7 +10,7 @@ class MQTT(Notify):
     INSTANCE = None
 
     QOS: int = None
-    DEBUG: bool = True
+    DEBUG: bool = False
     DEFAULT_TOPIC: str = "micros/#"
 
     # Micro Task TGS
