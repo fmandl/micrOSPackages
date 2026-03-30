@@ -1,47 +1,45 @@
-# micrOS Application: blinky\_example
+# micrOS Application: blinky/_example
 
-LM_Blinky is a simple micrOS load module that provides basic,
-remote-controllable LED management for MicroPython devices.
-It lets users initialize a GPIO pin and turn an LED on, off, toggle its state,
-or run timed blink sequences through the micrOS shell or web interface,
-making it ideal for hardware testing, demos, and quick feedback in embedded projects.
+Minimal micrOS example package for controlling a single LED from the shell or web UI.
 
-## Installation
+## Install
 
-```
+```bash
 pacman install "github:BxNxM/micrOSPackages/blinky_example"
 ```
 
-> Uninstall:
-
-```
+```bash
+pacman upgrade "blinky_example"
 pacman uninstall "blinky_example"
 ```
 
-> Everything will be installed under `/lib/blinky_example/*` and `/modules/LM_*`
+## Device Layout
 
-## MicroPython Docs `package.json` structure and `mip`
-
-[packages](https://docs.micropython.org/en/latest/reference/packages.html)
+- Package files: `/lib/blinky_example`
+- Load module: `/modules/LM_blinky.py`
 
 ## Usage
 
-### **load** function - load the app into memory
-
-```commandline
-blinky load
-```
-
-### **Commands** function - run example function
-
 ```commandline
 blinky load pin_number=26
-blinky on,
+blinky on
 blinky off
 blinky toggle
 blinky blink count=10 delay_ms=200
 ```
 
+> Blink every 100ms with Task
+
+```commandline
+blinky toggle &&100
+```
+
+[documentation](https://htmlpreview.github.io/?https://github.com/BxNxM/micrOS/blob/master/micrOS/client/sfuncman/sfuncman.html#blinky)
+
 ## Dependencies
 
+Dependencies are auto installed by `mip` based on `package.json`
+
+```text
 n/a
+```

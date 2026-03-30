@@ -1,52 +1,47 @@
 # micrOS Application: keychaindemo
 
-Short description about the application...
+Compact demo package for an ESP32-C3 keychain device with OLED status display, DS18 temperature readout, screen saver logic, and NeoPixel control.
 
-## Installation
+## Install
 
-```
+```bash
 pacman install "github:BxNxM/micrOSPackages/keychaindemo"
 ```
 
-> Uninstall:
-
+```bash
+pacman upgrade "keychaindemo"
+pacman uninstall "keychaindemo"
 ```
-pacman uninstall "<package-name>"
-```
 
-> Everything will be installed under `/lib/keychaindemo/*` and `/modules/LM_*`
+## Device Layout
 
-## MicroPython Docs `package.json` structure and `mip`
-
-[packages](https://docs.micropython.org/en/latest/reference/packages.html)
-
-## micrOS Project
-
-[Project Docs](https://github.com/BxNxM/micrOS/tree/master)
-[Coding Docs](https://github.com/BxNxM/micrOS/blob/master/micrOS/MODULE_GUIDE.md)
+- Package files: `/lib/keychaindemo`
+- Load module: `/modules/LM_keychain.py`
 
 ## Usage
 
-### **load** function - load the app into memory
-
 ```commandline
-keychain load
+keychain load width=64 height=32 bootmsg="micrOS"
+keychain display period=1000 tts=30
+keychain temperature
+keychain button
+keychain display_toggle
+keychain neopixel_toggle
+keychain color_wheel br=20
+keychain pinmap
 ```
 
-### **do** function - run example function
-
-```commandline
-keychain do
-```
-
-[documentation](https://htmlpreview.github.io/?https://github.com/BxNxM/micrOS/blob/master/micrOS/client/sfuncman/sfuncman.html)
+[documentation](https://htmlpreview.github.io/?https://github.com/BxNxM/micrOS/blob/master/micrOS/client/sfuncman/sfuncman.html#keychain)
 
 ## Dependencies
 
-```commandline
+Dependencies are auto installed by `mip` based on `package.json`
+
+### built-ins
+
+```text
 LM_oled
 LM_ds18
 LM_system
-
 LM_gameOfLife
 ```

@@ -1,46 +1,39 @@
-# micrOS Application: <package-app-name>
+# 📦 micrOS Application: <package-app-name>
 
-Short description about the application...
+One-line summary of the package.
 
-## Installation
+## Install
 
-```
+```bash
 pacman install "<package-url>"
 ```
 
-> Uninstall:
-
+```bash
+pacman upgrade "<package-app-name>"
+pacman uninstall "<package-app-name>"
 ```
-pacman uninstall "<package-name>"
-```
 
-> Everything will be installed under `/lib/<package-app-name>/*` and `/modules/LM_*`
+## Device Layout
 
-## MicroPython Docs `package.json` structure and `mip`
+- Package files: `/lib/<package-app-name>`
+- Load modules: `/modules/LM_*`
+- Web assets: `/web/*` when present
 
-[packages](https://docs.micropython.org/en/latest/reference/packages.html)
-
-## micrOS Project
-
-[Project Docs](https://github.com/BxNxM/micrOS/tree/master)
-[Coding Docs](https://github.com/BxNxM/micrOS/blob/master/micrOS/MODULE_GUIDE.md)
+> Based on pacman.json
 
 ## Usage
 
-### **load** function - load the app into memory
-
 ```commandline
 <app_name> load
-```
-
-### **do** function - run example function
-
-```commandline
 <app_name> do
 ```
 
-[documentation](https://htmlpreview.github.io/?https://github.com/BxNxM/micrOS/blob/master/micrOS/client/sfuncman/sfuncman.html)
+[documentation](https://htmlpreview.github.io/?https://github.com/BxNxM/micrOS/blob/master/micrOS/client/sfuncman/sfuncman.html#external-modules)
 
 ## Dependencies
 
+Dependencies are auto installed by `mip` based on `package.json`
+
+```text
 n/a
+```
