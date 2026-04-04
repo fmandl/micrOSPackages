@@ -92,7 +92,7 @@ def post_install(lib_path:Path, package_name:str) -> tuple[list, list]:
     return overwrites, ext_load_modules
 
 
-# --- the caching decorator (one main folder per ref@version) ---
+# --- the caching decorator (one main folder per package@version) ---
 def cache_dep(func):
 
     def _copy_delta(delta_paths: set[Path], src_root: Path, cache_pkg: Path) -> None:
@@ -132,10 +132,10 @@ def cache_dep(func):
                 dst.parent.mkdir(parents=True, exist_ok=True)
                 shutil.copy2(src, dst)
 
-    def wrapper(ref:str, version:str, target_path:Path):
+    def wrapper(package:str, version:str, target_path:Path):
         target_str = str(target_path)
         cache_root = CACHE_DIR_PATH / "deps"
-        cache_pkg = cache_root / f"{ref}@{version}"
+        cache_pkg = cache_root / f"{package}@{version}"
 
         print(f"🗄️ [CACHE] Deps path: {str(cache_pkg)}")
         if cache_pkg.is_dir():
@@ -151,7 +151,7 @@ def cache_dep(func):
         os.makedirs(cache_pkg, exist_ok=True)
         before_snapshot = {p.resolve() for p in target_path.rglob("*")}
         # Run decorated function
-        result = func(ref, version, target_str)
+        result = func(package, version, target_str)
         after_snapshot = {p.resolve() for p in target_path.rglob("*")}
         new_contents = after_snapshot - before_snapshot
         print("[CACHE] BACKUP ... cache mip install content")
@@ -175,12 +175,15 @@ def clean_cache():
 
 # --- the decorated single-dependency installer ---
 @cache_dep
-def _install_dep(ref:str, version:str, target_path:Path):
+def _install_dep(package:str, version:str, target_path:Path):
     if isinstance(target_path, Path):
         # Make sure target_path is mip compatible (str)
         target_path = str(target_path)
-    print(f"[DEP] Install: {ref} @{version} ({target_path})")
-    mip_install(ref, target=target_path)
+    print(f"[DEP] Install: {package} @{version} ({target_path})")
+    if version in (None, "", "latest"):
+        mip_install(package=package, target=target_path)
+        return
+    mip_install(package=package, target=target_path, version=version)
 
 
 def download_deps(deps:list, target_path:Path):
@@ -191,11 +194,11 @@ def download_deps(deps:list, target_path:Path):
     for dep in deps:
         if not isinstance(dep, list):
             raise Exception(f"Invalid deps structure: {dep} must be list, structure must be [[],[],...]")
-        ref = dep[0]
+        package = dep[0]
         version = dep[1] if len(dep) > 1 else "latest"
 
         # Only this part is now "decorated logic":
-        _install_dep(ref, version, target_path)
+        _install_dep(package, version, target_path)
 
 
 def unpack_package(package_path:Path, target_path:Path) -> tuple[list, list]:

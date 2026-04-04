@@ -63,19 +63,19 @@ def _save_file(path, data):
     return False
 
 
-def _github_to_url(ref, branch="master"):
+def _github_to_url(ref, branch=None):
     if ref.startswith("github"):
         """
         Convert: github:peterhinch/micropython-mqtt
-                https://raw.githubusercontent.com/peterhinch/micropython-mqtt/refs/heads/master/mqtt_as/clean.py
-            To: https://raw.githubusercontent.com/peterhinch/micropython-mqtt/refs/heads/master/XXX
+                https://raw.githubusercontent.com/peterhinch/micropython-mqtt/HEAD/mqtt_as/clean.py
+            To: https://raw.githubusercontent.com/peterhinch/micropython-mqtt/<ref>/XXX
         """
         base_github_url = "https://raw.githubusercontent.com"
         _parts = ref.split("/")
         user = _parts[0].split(":")[-1]
         repo = _parts[1]
         file_path = "/".join(_parts[2:])
-        branch = f"refs/heads/{branch}"
+        branch = "HEAD" if branch in (None, "") else branch
         if "." in file_path:
             # File mode - Build raw URL
             ref = f"{base_github_url}/{user}/{repo}/{branch}/{file_path}"
@@ -86,21 +86,21 @@ def _github_to_url(ref, branch="master"):
     return None
 
 
-def _mip_emu(ref, target:Path=Path("lib"), version:str="master"):
+def _mip_emu(package, target:Path=Path("lib"), version=None):
     """
     Tiny simulation of MicroPython's mip.install for normal Python.
     """
     installed = []
 
-    if isinstance(ref, str) and (ref.startswith("http") or ref.startswith("github")):
+    if isinstance(package, str) and (package.startswith("http") or package.startswith("github")):
 
-        if ref.startswith("github"):
-            url = _github_to_url(ref, branch=version)
+        if package.startswith("github"):
+            url = _github_to_url(package, branch=version)
             if url is None:
-                console(f"Invalid GitHub URL: {ref}")
+                console(f"Invalid GitHub URL: {package}")
                 return []
         else:
-            url = ref
+            url = package
         dest = target / Path(urlparse(url).path).name
 
         if not _guess_url_is_file(url):
@@ -153,13 +153,15 @@ def _dump_dir_content(target):
         print("")
 
 
-def install(ref, **kwargs):
-    target = kwargs.get("target", Path.cwd() / "lib")
-    version = kwargs.get("version", "master")
-    console(f">>> mip install: {ref} {kwargs}")
+def install(package=None, target=None, version=None):
+    if not package:
+        console(">>> mip install: empty package")
+        return
+    target = target or (Path.cwd() / "lib")
+    console(f">>> mip install: {package} {{'target': {target}, 'version': '{version}'}}")
     if isinstance(target, str):
         target = Path(target)
     # Run mip emulation
-    _mip_emu(ref, target=target, version=version)
+    _mip_emu(package, target=target, version=version)
     # Dump content
     _dump_dir_content(target)
