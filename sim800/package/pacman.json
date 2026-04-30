@@ -1,0 +1,15 @@
+{
+    "versions": {
+        "packager": "0.1.0",
+        "package": "1.0.0"
+    },
+    "url": "github:BxNxM/micrOSPackages/sim800",
+    "layout": {
+        "/modules": [
+            "LM_sim800.py"
+        ],
+        "/web": [],
+        "/web/data": [],
+        "/data": []
+    }
+}

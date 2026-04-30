@@ -1,0 +1,18 @@
+{
+    "version": "1.0.0",
+    "urls": [
+        [
+            "phone_manager/__init__.py",
+            "github:BxNxM/micrOSPackages/phone_manager/package/__init__.py"
+        ],
+        [
+            "LM_users.py",
+            "github:BxNxM/micrOSPackages/phone_manager/package/LM_users.py"
+        ],
+        [
+            "phone_manager/pacman.json",
+            "github:BxNxM/micrOSPackages/phone_manager/package/pacman.json"
+        ]
+    ],
+    "deps": []
+}
