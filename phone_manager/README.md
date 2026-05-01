@@ -86,3 +86,7 @@ if result:
 cd phone_manager
 python3 -m pytest tests/test_users.py -v
 ```
+
+## Author
+
+Flórián Mandl ([@fmandl](https://github.com/fmandl))

@@ -96,3 +96,7 @@ sim.subscribe('sms', on_sms)
 cd sim800
 python3 -m pytest tests/test_sim800.py -v
 ```
+
+## Author
+
+Flórián Mandl ([@fmandl](https://github.com/fmandl))

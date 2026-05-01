@@ -83,3 +83,7 @@ github:BxNxM/micrOSPackages/phone_manager
 cd garage_remote
 python3 -m pytest tests/test_garage.py -v
 ```
+
+## Author
+
+Flórián Mandl ([@fmandl](https://github.com/fmandl))
