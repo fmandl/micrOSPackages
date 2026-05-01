@@ -36,3 +36,7 @@ Dependencies are auto installed by `mip` based on `package.json`
 ```text
 github:peterhinch/micropython-mqtt
 ```
+
+## Author
+
+Flórián Mandl ([@fmandl](https://github.com/fmandl))
