@@ -23,10 +23,10 @@ def get_timestamp():
     return "{:04d}-{:02d}-{:02d} {:02d}:{:02d}".format(t[0], t[1], t[2], t[3], t[4])
 
 def _logger(message, level="INFO", topic_suffix="log"):
-    """Log message to MQTT notify and console.
+    """Log message via Notify (MQTT/Telegram if configured) and console.
     :param message str: log message
     :param level str: log level (INFO, WARN, ERROR)
-    :param topic_suffix str: MQTT topic suffix
+    :param topic_suffix str: notification topic suffix
     """
     payload = json.dumps({"time": get_timestamp(), "level": level, "message": str(message)})
     console_entry = f"[{get_timestamp()}] [{level}] {message}"
