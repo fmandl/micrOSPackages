@@ -1,0 +1,27 @@
+{
+    "version": "1.0.0",
+    "urls": [
+        [
+            "garage_remote/__init__.py",
+            "github:BxNxM/micrOSPackages/garage_remote/package/__init__.py"
+        ],
+        [
+            "LM_garage.py",
+            "github:BxNxM/micrOSPackages/garage_remote/package/LM_garage.py"
+        ],
+        [
+            "garage_remote/pacman.json",
+            "github:BxNxM/micrOSPackages/garage_remote/package/pacman.json"
+        ]
+    ],
+    "deps": [
+        [
+            "github:BxNxM/micrOSPackages/sim800",
+            "master"
+        ],
+        [
+            "github:BxNxM/micrOSPackages/phone_manager",
+            "master"
+        ]
+    ]
+}

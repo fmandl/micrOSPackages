@@ -1,0 +1,18 @@
+{
+    "version": "1.0.0",
+    "urls": [
+        [
+            "sim800/__init__.py",
+            "github:BxNxM/micrOSPackages/sim800/package/__init__.py"
+        ],
+        [
+            "LM_sim800.py",
+            "github:BxNxM/micrOSPackages/sim800/package/LM_sim800.py"
+        ],
+        [
+            "sim800/pacman.json",
+            "github:BxNxM/micrOSPackages/sim800/package/pacman.json"
+        ]
+    ],
+    "deps": []
+}

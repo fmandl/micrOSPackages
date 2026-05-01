@@ -1,0 +1,15 @@
+{
+    "versions": {
+        "packager": "0.1.0",
+        "package": "1.0.0"
+    },
+    "url": "github:BxNxM/micrOSPackages/phone_manager",
+    "layout": {
+        "/modules": [
+            "LM_users.py"
+        ],
+        "/web": [],
+        "/web/data": [],
+        "/data": []
+    }
+}
