@@ -27,6 +27,18 @@ def _load_users_module():
         stub = _t.ModuleType("Common")
         sys.modules["Common"] = stub
     sys.modules["Common"].data_dir = lambda f_name=None: f_name if f_name else '.'
+    if "phone_manager" not in sys.modules:
+        pkg = _t.ModuleType("phone_manager")
+        pkg.__path__ = [str(PACKAGE_DIR)]
+        sys.modules["phone_manager"] = pkg
+    if "phone_manager.manager" not in sys.modules:
+        manager_spec = importlib.util.spec_from_file_location(
+            "phone_manager.manager", str(PACKAGE_DIR / "manager.py")
+        )
+        manager_mod = importlib.util.module_from_spec(manager_spec)
+        sys.modules["phone_manager.manager"] = manager_mod
+        manager_spec.loader.exec_module(manager_mod)
+        sys.modules["phone_manager"].manager = manager_mod
     spec = importlib.util.spec_from_file_location("LM_users_real", str(PACKAGE_DIR / "LM_users.py"))
     mod = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(mod)
