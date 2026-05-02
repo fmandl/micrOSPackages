@@ -18,6 +18,9 @@ In addition to `package.json`, micrOS packages also include a **pacman.json** fi
 | [async_oledui](./async_oledui/README.md) | SSD1306 and SH1106 OLED plug-and-play GUI with trackball support. |
 | [neopixel_matrix](./neopixel_matrix/README.md) | Neopixel 8x8 LED matrix animations and web control. |
 | [keychaindemo](./keychaindemo/README.md) | 16x32 SSD1306 OLED ESP32-C3 mini keychain demo with DS18 temperature sensor. |
+| [sim800](./sim800/README.md) | SIM800C GSM modem interface. Call reveice, Test message receive/send. |
+| [garage_remote](./garage_remote/README.md) | Smart garage remote control with `phone_manager` |
+| [phone_manager](./phone_manager/README.md) | Phone number-based user management and access control. |
 | []() | Add your own. |
 
 
