@@ -1,7 +1,7 @@
 {
     "versions": {
         "packager": "0.1.0",
-        "package": "1.0.0"
+        "package": "1.0.1"
     },
     "url": "github:BxNxM/micrOSPackages/phone_manager",
     "layout": {
