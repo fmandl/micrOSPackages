@@ -1,17 +1,21 @@
 {
-    "version": "1.0.0",
+    "version": "1.0.1",
     "urls": [
-        [
-            "phone_manager/__init__.py",
-            "github:BxNxM/micrOSPackages/phone_manager/package/__init__.py"
-        ],
         [
             "LM_users.py",
             "github:BxNxM/micrOSPackages/phone_manager/package/LM_users.py"
         ],
         [
+            "phone_manager/__init__.py",
+            "github:BxNxM/micrOSPackages/phone_manager/package/__init__.py"
+        ],
+        [
             "phone_manager/pacman.json",
             "github:BxNxM/micrOSPackages/phone_manager/package/pacman.json"
+        ],
+        [
+            "phone_manager/manager.py",
+            "github:BxNxM/micrOSPackages/phone_manager/package/manager.py"
         ]
     ],
     "deps": []

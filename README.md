@@ -18,6 +18,9 @@ In addition to `package.json`, micrOS packages also include a **pacman.json** fi
 | [async_oledui](./async_oledui/README.md) | SSD1306 and SH1106 OLED plug-and-play GUI with trackball support. |
 | [neopixel_matrix](./neopixel_matrix/README.md) | Neopixel 8x8 LED matrix animations and web control. |
 | [keychaindemo](./keychaindemo/README.md) | 16x32 SSD1306 OLED ESP32-C3 mini keychain demo with DS18 temperature sensor. |
+| [sim800](./sim800/README.md) | SIM800C GSM modem interface. Call reveice, Test message receive/send. |
+| [garage_remote](./garage_remote/README.md) | Smart garage remote control with `phone_manager` |
+| [phone_manager](./phone_manager/README.md) | Phone number-based user management and access control. |
 | []() | Add your own. |
 
 
@@ -36,7 +39,7 @@ ______               _                                  _
 
 # CLI Tool (`tools.py`)
 
-The `tools.py` script provides a unified interface to validate packages, create new packages, update `package.json` files, and start a local `mip` package registry server.
+The `tools.py` script provides a unified interface to validate packages, run package unit tests, create new packages, update package metadata, and start a local `mip` package registry server.
 
 ## Usage
 
@@ -54,6 +57,12 @@ python3 tools.py [options]
 - `-v [VALIDATE]`, `--validate [VALIDATE]`  
   Validate one package by name.  
   If no name is provided, validate all packages.
+
+### Unit Tests
+- `-ut UNIT_TEST`, `--unit-test UNIT_TEST`  
+  Run unit tests for one package if `<package>/tests` exists with the normal pytest output.  
+  If no name is provided, run all available package unit tests.  
+  Use `-q` for short one-line summaries.
 
 ### Local mip Server
 - `-s`, `--serve`  
@@ -97,6 +106,7 @@ python3 tools.py [options]
 │   ├── mip.py
 │   ├── serve_packages.py
 │   ├── unpack.py
+│   ├── ut_executor.py
 │   └── validate.py
 ├── async_mqtt                              <- APPLICATION PACKAGE
 │   ├── README.md
@@ -158,6 +168,19 @@ The validation process ensures:
 - all files listed inside `package.json` actually exist
 - the package structure is valid for `mip` installation
 - `pacman.json` exists
+- available unit tests under `<package>/tests` pass
+
+Run unit tests directly for one package:
+
+```bash
+python3 tools.py --unit-test mypackage
+```
+
+Run all available package unit tests:
+
+```bash
+python3 tools.py --unit-test
+```
 
 ---
 
@@ -248,10 +271,12 @@ pacman install "https://github.com/BxNxM/micrOSPackages/blob/main/blinky_example
 - Each folder is one micrOS package.
 - `tools.py` manages:
   - validation
+  - unit test execution
   - package creation
   - `package.json` updating
   - local `mip` server
 - `validate.py` checks package structure and file references.
+- `ut_executor.py` runs package-local pytest suites from `<package>/tests`.
 - `serve_packages.py` provides a local `mip` server.
 - Load Modules must follow the `LM_*.py` naming pattern.
 

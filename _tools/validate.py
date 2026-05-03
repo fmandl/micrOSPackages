@@ -46,6 +46,16 @@ def find_all_packages(source_path):
     return sorted(packages)
 
 
+def resolve_packages(pack_name: str = None):
+    """Resolve one package or all packages to absolute package directories."""
+    source_path = os.path.dirname(ROOT)
+    if pack_name is None:
+        return find_all_packages(source_path)
+
+    package = os.path.join(source_path, pack_name)
+    if _check_package_json(package):
+        return [package]
+    return []
 def is_http_remote(src: str) -> bool:
     if not isinstance(src, str):
         return False
@@ -200,40 +210,34 @@ def main(pack_name:str=None, verbose:bool=True):
     global VERBOSE
     VERBOSE = verbose
 
-    packages:list = []
-    if pack_name is None:
-        packages = find_all_packages(os.path.dirname(ROOT))
-    else:
-        package = os.path.join(os.path.dirname(ROOT), pack_name)
-        if _check_package_json(pack_name):
-            packages = [package]
+    packages = resolve_packages(pack_name)
 
     if not packages:
         print("⚠️ No packages found (no subfolders containing package.json).")
-        return 1
+        return False
 
     verbose_print(f"🔍 Found {len(packages)} package(s).")
 
-    all_ok = True
+    validation_ok = True
     for pkg in packages:
         package_ok = True
         if not validate_package_json(pkg):
             package_ok = False
         if not validate_package(pkg):
             package_ok = False
-        all_ok &= package_ok
+        validation_ok &= package_ok
         if package_ok:
             verbose_print("  ✔️ VALID\n")
         else:
             print("  ✖️ INVALID\n")
 
-    if all_ok:
+    if validation_ok:
         print("🎉 All packages are valid!")
     else:
         print("❗ Some packages failed validation.\n\tFix: ./tools.py --update <package-name>")
         if not VERBOSE:
             print("\tFor more details, run: ./tools.py --validate")
-    return all_ok
+    return validation_ok
 
 
 if __name__ == "__main__":

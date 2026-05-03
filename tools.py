@@ -3,7 +3,8 @@
 import argparse
 import sys
 import subprocess
-from _tools import validate, serve_packages, create_package, unpack
+from _tools import validate, serve_packages, create_package, unpack, ut_executor
+
 
 def check_githooks():
     try:
@@ -55,6 +56,13 @@ def build_parser():
         help="✅ Update application package.json and pacman.json by package name"
     )
 
+    parser.add_argument(
+        "-ut", "--unit-test",
+        nargs="?",
+        const="__ALL__",
+        help="🧪 Run unit tests for one package, or all package tests if no name is provided"
+    )
+
     # SERVE: simple flag
     parser.add_argument(
         "--unpack",
@@ -73,7 +81,7 @@ def build_parser():
     parser.add_argument(
         "-q", "--quiet",
         action="store_true",
-        help="🤐 Minimize printouts when possible (validation)"
+        help="🤐 Minimize printouts when possible (validation, unit tests)"
     )
 
     return parser
@@ -98,6 +106,16 @@ if __name__ == "__main__":
         print(f"Updating package.json for {package_name}")
         create_package.update_package_json(package_path, package_name)
         create_package.update_pacman_json(package_path, package_name)
+
+    # --- UNIT TEST LOGIC ---
+    if args.unit_test is not None:
+        if args.unit_test == "__ALL__":
+            print("Running unit tests for ALL packages...")
+            is_ok = ut_executor.run_all_unit_tests(quiet=quiet)
+        else:
+            is_ok = ut_executor.run_unit_tests(args.unit_test, quiet=quiet)
+        if not is_ok:
+            sys.exit(1)
 
     # --- CREATE LOGIC ---
     if args.create:
