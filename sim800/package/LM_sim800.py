@@ -137,6 +137,27 @@ def get_notify_numbers():
     return SMS._NUMBERS
 
 
+def remove_notify_number(number):
+    """Remove a number from SMS notify list.
+    :param number str: phone number to remove
+    """
+    if number in SMS._NUMBERS:
+        SMS._NUMBERS.remove(number)
+        SMS._save_cache()
+        return f"Removed {number}. Current: {SMS._NUMBERS}"
+    return f"{number} not found in {SMS._NUMBERS}"
+
+
+def sms_notify(enabled=None):
+    """Enable/disable SMS notify or query status.
+    :param enabled bool: True/False to set, None to query
+    """
+    if enabled is None:
+        return SMS._ENABLED
+    SMS._ENABLED = bool(enabled)
+    return f"SMS notify: {'enabled' if SMS._ENABLED else 'disabled'}"
+
+
 # ─── Event system ─────────────────────────────────────────────────
 
 def subscribe(event_type, callback):
@@ -247,6 +268,8 @@ def help(widgets=False):
     return resolve(('load pin_code=1234 tx_pin=16 rx_pin=17 ri_pin=23 notify_numbers="+36201234567"',
                     'set_notify_numbers numbers="+36201234567,+36207654321"',
                     'get_notify_numbers',
+                    'remove_notify_number number="+36201234567"',
+                    'sms_notify enabled=True/False/None',
                     'subscribe event_type="call" callback=<func>',
                     'unsubscribe event_type="call" callback=<func>',
                     'reset',

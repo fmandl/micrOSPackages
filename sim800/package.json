@@ -3,27 +3,27 @@
     "urls": [
         [
             "sim800/__init__.py",
-            "github:fmandl/micrOSPackages/sim800/package/__init__.py"
+            "github:BxNxM/micrOSPackages/sim800/package/__init__.py"
         ],
         [
             "LM_sim800.py",
-            "github:fmandl/micrOSPackages/sim800/package/LM_sim800.py"
+            "github:BxNxM/micrOSPackages/sim800/package/LM_sim800.py"
         ],
         [
             "sim800/modem.py",
-            "github:fmandl/micrOSPackages/sim800/package/modem.py"
+            "github:BxNxM/micrOSPackages/sim800/package/modem.py"
         ],
         [
             "sim800/codec.py",
-            "github:fmandl/micrOSPackages/sim800/package/codec.py"
+            "github:BxNxM/micrOSPackages/sim800/package/codec.py"
         ],
         [
             "sim800/notify.py",
-            "github:fmandl/micrOSPackages/sim800/package/notify.py"
+            "github:BxNxM/micrOSPackages/sim800/package/notify.py"
         ],
         [
             "sim800/pacman.json",
-            "github:fmandl/micrOSPackages/sim800/package/pacman.json"
+            "github:BxNxM/micrOSPackages/sim800/package/pacman.json"
         ]
     ],
     "deps": []

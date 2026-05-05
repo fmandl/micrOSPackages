@@ -11,6 +11,7 @@ from Common import data_dir
 class SMS(Notify):
     INSTANCE = None
     _NUMBERS = []
+    _ENABLED = True
     _FILE_CACHE = data_dir('notify_sms.cache')
 
     def __init__(self, numbers):
@@ -23,7 +24,9 @@ class SMS(Notify):
         channels = kwargs.get("channels", ())
         if isinstance(channels, str):
             channels = (channels,)
-        # Only send if explicitly requested
+        # Only send if enabled and explicitly requested
+        if not SMS._ENABLED:
+            return
         if len(channels) > 0 and "SMS" not in channels:
             return
         if len(channels) == 0 and not kwargs.get("sms_to"):

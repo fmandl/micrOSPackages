@@ -3,7 +3,7 @@
         "packager": "0.1.0",
         "package": "1.0.1"
     },
-    "url": "github:fmandl/micrOSPackages/phone_manager",
+    "url": "github:BxNxM/micrOSPackages/phone_manager",
     "layout": {
         "/modules": [
             "LM_users.py"

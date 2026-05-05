@@ -5,7 +5,7 @@ SIM800C GSM modem interface for micrOS devices. Provides voice call handling, SM
 ## Install
 
 ```bash
-pacman install "github:fmandl/micrOSPackages/sim800"
+pacman install "github:BxNxM/micrOSPackages/sim800"
 ```
 
 ```bash
@@ -52,6 +52,10 @@ sim800/package/
 sim800 load pin_code=1234 tx_pin=16 rx_pin=17 ri_pin=23 notify_numbers="+36201234567,+36207654321"
 sim800 set_notify_numbers numbers="+36201234567,+36207654321"
 sim800 get_notify_numbers
+sim800 remove_notify_number number="+36201234567"
+sim800 sms_notify
+sim800 sms_notify enabled=False
+sim800 sms_notify enabled=True
 sim800 subscribe event_type="call" callback=<func>
 sim800 unsubscribe event_type="call" callback=<func>
 sim800 reset

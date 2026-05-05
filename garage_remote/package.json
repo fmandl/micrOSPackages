@@ -3,24 +3,24 @@
     "urls": [
         [
             "garage_remote/__init__.py",
-            "github:fmandl/micrOSPackages/garage_remote/package/__init__.py"
+            "github:BxNxM/micrOSPackages/garage_remote/package/__init__.py"
         ],
         [
             "garage_remote/pacman.json",
-            "github:fmandl/micrOSPackages/garage_remote/package/pacman.json"
+            "github:BxNxM/micrOSPackages/garage_remote/package/pacman.json"
         ],
         [
             "LM_garage.py",
-            "github:fmandl/micrOSPackages/garage_remote/package/LM_garage.py"
+            "github:BxNxM/micrOSPackages/garage_remote/package/LM_garage.py"
         ]
     ],
     "deps": [
         [
-            "github:fmandl/micrOSPackages/sim800",
+            "github:BxNxM/micrOSPackages/sim800",
             "main"
         ],
         [
-            "github:fmandl/micrOSPackages/phone_manager",
+            "github:BxNxM/micrOSPackages/phone_manager",
             "main"
         ]
     ]
