@@ -129,6 +129,11 @@ def set_notify_numbers(numbers):
     return f"SMS notify numbers: {nums}"
 
 
+def get_notify_numbers():
+    """Get current SMS notify destination numbers."""
+    return SMS._NUMBERS
+
+
 # ─── Event system ─────────────────────────────────────────────────
 
 def subscribe(event_type, callback):
@@ -238,6 +243,7 @@ def help(widgets=False):
     """[i] micrOS LM naming convention - built-in help message"""
     return resolve(('load pin_code=1234 tx_pin=16 rx_pin=17 ri_pin=23 notify_numbers="+36201234567"',
                     'set_notify_numbers numbers="+36201234567,+36207654321"',
+                    'get_notify_numbers',
                     'subscribe event_type="call" callback=<func>',
                     'unsubscribe event_type="call" callback=<func>',
                     'reset',
