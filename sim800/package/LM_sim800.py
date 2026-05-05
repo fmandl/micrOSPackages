@@ -124,7 +124,10 @@ def set_notify_numbers(numbers):
     :param numbers str: comma-separated phone numbers
     """
     nums = [n.strip() for n in numbers.split(',') if n.strip()]
-    SMS._NUMBERS = nums
+    if SMS.INSTANCE is None and nums:
+        SMS(nums)
+    else:
+        SMS._NUMBERS = nums
     SMS._save_cache()
     return f"SMS notify numbers: {nums}"
 
