@@ -37,6 +37,7 @@ pacman uninstall "garage_remote"
 
 ```commandline
 garage load pin_code=1234
+garage load pin_code=1234 phonebook="garage_users.json"
 garage unload
 garage open_garage
 garage press_alarm_button

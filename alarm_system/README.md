@@ -1,6 +1,6 @@
 # micrOS Application: alarm_system
 
-Distributed alarm system for micrOS devices. Manages zones, state machine, and action dispatch via MQTT. Supports local GPIO sensors (door, tamper) and remote MQTT zones. Inspired by professional alarm panels (Ajax, Paradox).
+Distributed alarm system for micrOS devices. Manages zones, state machine, and action dispatch via MQTT. Supports local GPIO sensors, remote MQTT zones, topic watchers, event logging, supervision, and more. Inspired by professional alarm panels (Ajax, Paradox).
 
 ## Install
 
@@ -19,12 +19,7 @@ pacman uninstall "alarm_system"
 - Load module: `/modules/LM_alarm_system.py`
 - Config file: `/data/alarm_config.json`
 - State file: `/data/alarm_state.json`
-
-## Hardware
-
-- **Door sensor**: Reed contact (normally open, active-low with pull-up)
-- **Tamper sensor**: Tamper switch (normally closed)
-- **Interface**: GPIO with IRQ + debounce + confirm + rescue polling
+- Event log: `/data/alarm_log.json`
 
 ## Usage
 
@@ -37,13 +32,27 @@ alarm_system arm mode="night"
 alarm_system disarm
 alarm_system status
 alarm_system add_sensor name="door" pin=19 type="delayed" group="perimeter"
-alarm_system add_sensor name="tamper" pin=20 type="24h" group="always"
 alarm_system remove_sensor name="door"
-alarm_system add_zone name="light_living" type="instant" group="interior"
-alarm_system remove_zone name="light_living"
+alarm_system add_zone name="light" type="instant" group="interior"
+alarm_system add_zone name="pir1" type="cross" group="interior" cross_pair="pir2" cross_window=30
+alarm_system remove_zone name="light"
 alarm_system list_zones
 alarm_system zone_trigger name="door" event="triggered"
 alarm_system show_config
+alarm_system add_watch topic="zigbee2mqtt/sensor" zone="window" trigger_field="contact" trigger_value=false reset_value=true
+alarm_system remove_watch topic="zigbee2mqtt/sensor"
+alarm_system list_watches
+alarm_system event_log count=20
+alarm_system clear_log
+alarm_system alarm_memory
+alarm_system chime state="on"
+alarm_system chime state="off"
+alarm_system auto_arm delay=3600 mode="night"
+alarm_system auto_arm delay=0
+alarm_system bypass name="window"
+alarm_system unbypass name="window"
+alarm_system supervise name="window" timeout=600
+alarm_system unsupervise name="window"
 alarm_system pinmap
 ```
 
@@ -67,15 +76,17 @@ alarm_system pinmap
   * 24h zone (tamper): ANY state → ALARM (immediate)
   * instant zone: ARMED → ALARM (no entry delay)
   * delayed zone: ARMED → ENTRY_DELAY → ALARM
+  * cross zone: ARMED → ALARM only if pair also triggers within window
 ```
 
 ## Zone Types
 
-| Type      | Behavior                        | Example              |
-|-----------|---------------------------------|----------------------|
-| `delayed` | Entry delay before alarm        | Front door           |
-| `instant` | Immediate alarm when armed      | Window, motion       |
-| `24h`     | Always triggers (any state)     | Tamper, smoke        |
+| Type      | Behavior                                    | Example              |
+|-----------|---------------------------------------------|----------------------|
+| `delayed` | Entry delay before alarm                    | Front door           |
+| `instant` | Immediate alarm when armed                  | Window, motion       |
+| `24h`     | Always triggers (any state)                 | Tamper, smoke        |
+| `cross`   | Alarm only if paired zone triggers within X sec | Dual PIR         |
 
 ## Zone Groups (Arm Modes)
 
@@ -85,58 +96,85 @@ alarm_system pinmap
 | `interior`  | ✓         | ✗           | Motion sensors                 |
 | `always`    | ✓         | ✓           | Tamper, smoke (24h zones)      |
 
-## Action Hooks (MQTT notifications to remote devices)
+## SMS Control
 
-| State transition | MQTT action sent              | Remote device response |
-|-----------------|-------------------------------|----------------------|
-| → ARMING        | `{"action": "buzzer_slow"}`   | Buzzer slow beep     |
-| → ARMED         | `{"action": "buzzer_stop"}`   | Buzzer stops         |
-|                 | `{"action": "led_red"}`       | LED turns red        |
-| → ENTRY_DELAY   | `{"action": "buzzer_fast"}`   | Buzzer fast beep     |
-| → ALARM         | `{"action": "siren_on"}`      | Siren activates      |
-| → DISARMED      | `{"action": "all_stop"}`      | Everything stops     |
-|                 | `{"action": "led_green"}`     | LED turns green      |
+SMS-based arm/disarm with phonebook authorization. Uses its own isolated phonebook (`book='alarm'`).
 
-## Force Arm
+### SMS Commands
 
-- `arm()` refuses if zones are open in active groups
-- `arm(force=True)` overrides (bypasses open zones)
-- Tamper open → always refuses, even with force
+| SMS text | admin | user | Description |
+|----------|-------|------|-------------|
+| `arm` / `arm full` | ✓ | ✓ | Arm full mode |
+| `arm night` | ✓ | ✓ | Arm night mode |
+| `disarm` | ✓ | ✓ | Disarm |
+| `status` | ✓ | ✓ | Reply SMS with current state |
+| `bypass <zone>` | ✓ | ✗ | Bypass a zone (admin only) |
+| `unbypass <zone>` | ✓ | ✗ | Remove bypass (admin only) |
+| `auto_arm <sec> [mode]` | ✓ | ✗ | Configure auto-arm (admin only) |
+
+### Alarm Notification
+
+When alarm triggers, SMS is sent to all admin users:
+```
+ALARM! Zones: door, window
+```
+
+### Phonebook Config
+
+In `alarm_config.json`:
+```json
+{
+    "phonebook": "alarm_users.json"
+}
+```
+
+Manage users:
+```commandline
+users load json_file="alarm_users.json" book="alarm"
+users add_user phone="+36201234567" name="Owner" role="admin" book="alarm"
+users add_user phone="+36209876543" name="Cleaner" role="user" book="alarm"
+```
+
+## Features
+
+- **Event log**: Circular buffer with configurable max entries, persisted to JSON
+- **Alarm memory**: Tracks which zones caused the last alarm (cleared on next arm)
+- **Chime mode**: Beep on delayed zone open while disarmed
+- **Auto-arm**: Automatic arming after inactivity (resets on zone_trigger + disarm)
+- **Zone bypass**: Temporarily ignore a zone while armed (clears on disarm)
+- **Cross-zone**: Dual trigger — alarm only if paired zone also triggers within time window
+- **Sensor supervision**: Heartbeat monitoring for remote zones (trouble blocks arm)
+- **MQTT watcher**: Subscribe to arbitrary topics, map payloads to zone triggers
+- **Force arm**: Override open zones (except tamper)
+- **State persistence**: Survives reboot
+
+## MQTT Topic Watcher
+
+Subscribe to non-micrOS devices (Zigbee2MQTT, Shelly, Tasmota):
+
+```commandline
+alarm_system add_watch topic="zigbee2mqtt/window" zone="window" trigger_field="contact" trigger_value=false reset_value=true
+alarm_system add_watch topic="shelly/door/state" zone="door" trigger_value="open" reset_value="close"
+```
 
 ## Config File
-
-Stored in `/data/alarm_config.json`, auto-saved on sensor/zone changes:
 
 ```json
 {
     "exit_delay": 30,
     "entry_delay": 15,
     "interval": 50,
+    "max_log_entries": 100,
     "sensors": [
-        {"name": "door", "pin": 19, "type": "delayed", "group": "perimeter"},
-        {"name": "tamper", "pin": 20, "type": "24h", "group": "always"}
+        {"name": "door", "pin": 19, "type": "delayed", "group": "perimeter"}
     ],
     "zones": [
-        {"name": "light_living", "type": "instant", "group": "interior"}
+        {"name": "window", "type": "instant", "group": "perimeter", "supervision": 600}
+    ],
+    "watches": [
+        {"topic": "zigbee2mqtt/window", "zone": "window", "trigger_field": "contact", "trigger_value": false, "reset_value": true}
     ]
 }
-```
-
-## State Persistence
-
-State survives reboot via `/data/alarm_state.json`:
-- ARMED → stays ARMED
-- ARMING → becomes ARMED (delay expired during reboot)
-- ENTRY_DELAY → becomes ALARM (suspicious reboot)
-- ALARM → stays ALARM
-
-## MQTT Control
-
-Uses native micrOS 3-part topic command execution:
-```
-Topic: {devfid}/alarm_system/arm     Payload: {"mode": "full"}
-Topic: {devfid}/alarm_system/disarm  Payload: {}
-Topic: {devfid}/alarm_system/status  Payload: {}
 ```
 
 ## Dependencies
@@ -153,6 +191,8 @@ github:fmandl/micrOSPackages/phone_manager
 cd alarm_system
 python3 -m pytest tests/ -v
 ```
+
+246 tests (alarm_system + door_sensor + integration + event_log + mqtt_watcher).
 
 ## Author
 

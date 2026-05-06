@@ -8,11 +8,11 @@ from Common import micro_task, console, exec_cmd
 from Notify import Notify
 from Types import resolve
 
-# status: "A" as Allowed
-# status: "B" as Blocked
+# Phone book name for this module
+_BOOK = 'garage'
 
 # Alarm session management
-MAX_ALARM_MINUTES = 60
+MAX_ALARM_MINUTES = 30
 ALARM_CHUNK_MINUTES = 7
 _alarm_sessions = {}
 _alarm_observer_task = None
@@ -23,10 +23,10 @@ def get_timestamp():
     return "{:04d}-{:02d}-{:02d} {:02d}:{:02d}".format(t[0], t[1], t[2], t[3], t[4])
 
 def _logger(message, level="INFO", topic_suffix="log"):
-    """Log message via Notify (MQTT/Telegram if configured) and console.
+    """Log message to MQTT notify and console.
     :param message str: log message
     :param level str: log level (INFO, WARN, ERROR)
-    :param topic_suffix str: notification topic suffix
+    :param topic_suffix str: MQTT topic suffix
     """
     payload = json.dumps({"time": get_timestamp(), "level": level, "message": str(message)})
     console_entry = f"[{get_timestamp()}] [{level}] {message}"
@@ -177,13 +177,13 @@ def _handle_call(call_params):
     """
     sim.reject_call()
     caller = call_params.get('caller_number', '')
-    result = users.get_user(phone=caller)
+    result = users.get_user(phone=caller, book=_BOOK)
     if not result:
         _logger(f"Unknown caller: {caller}")
         return
     user = result[0]
     if user["status"] == "A":
-        if users.check_access(user['phone']):
+        if users.check_access(user['phone'], book=_BOOK):
             _logger(f"Inactive caller: {user['name']} ({user['phone']})")
             return
         _logger(f"Allowed caller: {user['name']} ({user['phone']})")
@@ -202,7 +202,7 @@ def _handle_sms(sms):
     if not sender:
         _logger("SMS without sender field")
         return
-    result = users.get_user(phone=sender)
+    result = users.get_user(phone=sender, book=_BOOK)
     if not result:
         _logger(f"Unknown SMS sender: {sender}")
         return
@@ -213,7 +213,7 @@ def _handle_sms(sms):
     if user["status"] != "A":
         _logger(f"SMS sender with unexpected status '{user['status']}': {user['name']} ({user['phone']})")
         return
-    if users.check_access(user['phone']):
+    if users.check_access(user['phone'], book=_BOOK):
         _logger(f"Inactive SMS sender: {user['name']} ({user['phone']})")
         return
     if user["role"] == "admin" and re.search(r'^[cC][mM][dD]:.*', text):
@@ -225,13 +225,14 @@ def _handle_sms(sms):
         _logger(f"Alarm CMD by {user['name']} ({user['phone']}): {text}")
         _handle_alarm_command(text, user["phone"])
 
-def load(pin_code):
+def load(pin_code, phonebook='garage_users.json'):
     """Initialize garage module: relay, users, SIM800, subscribe to events.
     :param pin_code int: SIM card PIN code
+    :param phonebook str: phonebook JSON filename (default: garage_users.json)
     :return str: status message
     """
     _instantiate_relay()
-    users.load()
+    users.load(json_file=phonebook, book=_BOOK)
     sim.load(pin_code=pin_code)
     # Flush stale UART data before subscribing
     sim.read_uart()
@@ -265,6 +266,7 @@ def help(widgets=False):
         (widgets=True) list of widget json for UI generation
     """
     return resolve(('load pin_code=1234',
+                    'load pin_code=1234 phonebook="garage_users.json"',
                     'unload',
                     'open_garage',
                     'press_alarm_button',

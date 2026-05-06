@@ -109,8 +109,16 @@ def _reset_module():
     alarm._exit_delay = 30
     alarm._entry_delay = 15
     alarm._interval = 50
+    alarm._max_log_entries = 100
     alarm._config_file = None
     alarm._state_file = None
+    alarm._alarm_memory = []
+    alarm._chime = False
+    alarm._auto_arm_delay = None
+    alarm._auto_arm_mode = 'full'
+    alarm._auto_arm_task = None
+    alarm._last_activity = 0
+    alarm._bypassed = set()
     Notify.notify.reset_mock()
 
 
@@ -670,6 +678,427 @@ class TestActionHooks(unittest.TestCase):
         alarm.zone_trigger('tamper', 'triggered')
         actions = self._get_action_payloads()
         self.assertTrue(any('alert' in a for a in actions))
+
+
+class TestAlarmMemory(unittest.TestCase):
+    """Test alarm_memory tracking."""
+
+    def setUp(self):
+        _reset_module()
+        alarm._zones['door'] = {'type': 'delayed', 'group': 'perimeter', 'last_event': 'ok'}
+        alarm._zones['window'] = {'type': 'instant', 'group': 'perimeter', 'last_event': 'ok'}
+        alarm._zones['tamper'] = {'type': '24h', 'group': 'always', 'last_event': 'ok'}
+
+    def test_memory_empty_initially(self):
+        self.assertEqual(alarm.alarm_memory(), [])
+
+    def test_instant_trigger_adds_to_memory(self):
+        alarm._state = alarm.ARMED
+        alarm._arm_mode = 'full'
+        alarm.zone_trigger('window', 'triggered')
+        self.assertEqual(alarm.alarm_memory(), ['window'])
+
+    def test_delayed_trigger_adds_to_memory(self):
+        alarm._state = alarm.ARMED
+        alarm._arm_mode = 'full'
+        alarm.zone_trigger('door', 'triggered')
+        self.assertIn('door', alarm.alarm_memory())
+
+    def test_24h_trigger_when_armed_adds_to_memory(self):
+        alarm._state = alarm.ARMED
+        alarm._arm_mode = 'full'
+        alarm.zone_trigger('tamper', 'triggered')
+        self.assertIn('tamper', alarm.alarm_memory())
+
+    def test_24h_trigger_when_disarmed_not_in_memory(self):
+        alarm._state = alarm.DISARMED
+        alarm.zone_trigger('tamper', 'triggered')
+        self.assertEqual(alarm.alarm_memory(), [])
+
+    def test_multiple_triggers_accumulate(self):
+        alarm._state = alarm.ARMED
+        alarm._arm_mode = 'full'
+        alarm.zone_trigger('door', 'triggered')
+        # State is now ENTRY_DELAY, tamper (24h) still triggers
+        alarm.zone_trigger('tamper', 'triggered')
+        mem = alarm.alarm_memory()
+        self.assertIn('door', mem)
+        self.assertIn('tamper', mem)
+
+    def test_arm_clears_memory(self):
+        alarm._alarm_memory = ['door', 'window']
+        alarm.arm(mode='full')
+        self.assertEqual(alarm.alarm_memory(), [])
+
+    def test_status_includes_memory(self):
+        alarm._alarm_memory = ['door']
+        s = alarm.status()
+        self.assertEqual(s['alarm_memory'], ['door'])
+
+    def test_disarm_does_not_clear_memory(self):
+        alarm._state = alarm.ARMED
+        alarm._arm_mode = 'full'
+        alarm.zone_trigger('window', 'triggered')
+        alarm.disarm()
+        self.assertEqual(alarm.alarm_memory(), ['window'])
+
+
+class TestChimeMode(unittest.TestCase):
+    """Test chime mode."""
+
+    def setUp(self):
+        _reset_module()
+        alarm._zones['door'] = {'type': 'delayed', 'group': 'perimeter', 'last_event': 'ok'}
+        alarm._zones['window'] = {'type': 'instant', 'group': 'perimeter', 'last_event': 'ok'}
+
+    def test_chime_off_by_default(self):
+        self.assertFalse(alarm._chime)
+
+    def test_chime_on(self):
+        result = alarm.chime('on')
+        self.assertTrue(alarm._chime)
+        self.assertIn('enabled', result)
+
+    def test_chime_off(self):
+        alarm._chime = True
+        result = alarm.chime('off')
+        self.assertFalse(alarm._chime)
+        self.assertIn('disabled', result)
+
+    def test_chime_query(self):
+        alarm._chime = True
+        result = alarm.chime()
+        self.assertIn('on', result)
+
+    def test_chime_invalid_state(self):
+        result = alarm.chime('bogus')
+        self.assertIn('Invalid', result)
+
+    def test_chime_beeps_on_delayed_zone_disarmed(self):
+        alarm._chime = True
+        alarm._state = alarm.DISARMED
+        alarm.zone_trigger('door', 'triggered')
+        actions = [json.loads(c[0][0]) for c in Notify.notify.call_args_list
+                   if c[1].get('topic') == 'alarm/action']
+        self.assertTrue(any(a.get('action') == 'chime' for a in actions))
+
+    def test_chime_no_beep_on_instant_zone(self):
+        alarm._chime = True
+        alarm._state = alarm.DISARMED
+        alarm.zone_trigger('window', 'triggered')
+        actions = [json.loads(c[0][0]) for c in Notify.notify.call_args_list
+                   if c[1].get('topic') == 'alarm/action']
+        self.assertFalse(any(a.get('action') == 'chime' for a in actions))
+
+    def test_chime_no_beep_when_armed(self):
+        alarm._chime = True
+        alarm._state = alarm.ARMED
+        alarm._arm_mode = 'full'
+        alarm.zone_trigger('door', 'triggered')
+        actions = [json.loads(c[0][0]) for c in Notify.notify.call_args_list
+                   if c[1].get('topic') == 'alarm/action']
+        self.assertFalse(any(a.get('action') == 'chime' for a in actions))
+
+    def test_chime_no_beep_when_off(self):
+        alarm._chime = False
+        alarm._state = alarm.DISARMED
+        alarm.zone_trigger('door', 'triggered')
+        actions = [json.loads(c[0][0]) for c in Notify.notify.call_args_list
+                   if c[1].get('topic') == 'alarm/action']
+        self.assertFalse(any(a.get('action') == 'chime' for a in actions))
+
+
+class TestAutoArm(unittest.TestCase):
+    """Test auto-arm feature."""
+
+    def setUp(self):
+        _reset_module()
+
+    def test_auto_arm_enable(self):
+        result = alarm.auto_arm(delay=3600, mode='night')
+        self.assertEqual(alarm._auto_arm_delay, 3600)
+        self.assertEqual(alarm._auto_arm_mode, 'night')
+        self.assertIn('enabled', result)
+
+    def test_auto_arm_disable_with_zero(self):
+        alarm._auto_arm_delay = 3600
+        result = alarm.auto_arm(delay=0)
+        self.assertIsNone(alarm._auto_arm_delay)
+        self.assertIn('disabled', result)
+
+    def test_auto_arm_disable_with_none(self):
+        alarm._auto_arm_delay = 3600
+        result = alarm.auto_arm()
+        self.assertIsNone(alarm._auto_arm_delay)
+        self.assertIn('disabled', result)
+
+    def test_reset_activity_updates_timestamp(self):
+        alarm._auto_arm_delay = 3600
+        alarm._state = alarm.DISARMED
+        before = time.time()
+        alarm._reset_activity()
+        self.assertGreaterEqual(alarm._last_activity, before)
+
+    def test_disarm_resets_activity(self):
+        alarm._auto_arm_delay = 3600
+        alarm._state = alarm.ARMED
+        alarm._arm_mode = 'full'
+        alarm._last_activity = 0
+        alarm.disarm()
+        self.assertGreater(alarm._last_activity, 0)
+
+    def test_zone_trigger_resets_activity_when_disarmed(self):
+        alarm._auto_arm_delay = 3600
+        alarm._state = alarm.DISARMED
+        alarm._last_activity = 0
+        alarm._zones['door'] = {'type': 'delayed', 'group': 'perimeter', 'last_event': 'ok'}
+        alarm.zone_trigger('door', 'triggered')
+        self.assertGreater(alarm._last_activity, 0)
+
+    def test_zone_trigger_no_reset_when_armed(self):
+        alarm._auto_arm_delay = 3600
+        alarm._state = alarm.ARMED
+        alarm._arm_mode = 'full'
+        alarm._last_activity = 0
+        alarm._zones['window'] = {'type': 'instant', 'group': 'perimeter', 'last_event': 'ok'}
+        alarm.zone_trigger('window', 'triggered')
+        # Activity not reset when armed (state changes to ALARM)
+        self.assertEqual(alarm._last_activity, 0)
+
+    def test_auto_arm_starts_task_on_enable(self):
+        alarm._state = alarm.DISARMED
+        alarm.auto_arm(delay=60, mode='full')
+        self.assertIsNotNone(alarm._auto_arm_task)
+
+    def test_auto_arm_no_task_when_not_disarmed(self):
+        alarm._state = alarm.ARMED
+        alarm._arm_mode = 'full'
+        alarm._auto_arm_delay = 60
+        alarm._reset_activity()
+        # Task not started because not DISARMED
+        self.assertIsNone(alarm._auto_arm_task)
+
+
+class TestZoneBypass(unittest.TestCase):
+    """Test zone bypass feature."""
+
+    def setUp(self):
+        _reset_module()
+        alarm._zones['door'] = {'type': 'delayed', 'group': 'perimeter', 'last_event': 'ok'}
+        alarm._zones['window'] = {'type': 'instant', 'group': 'perimeter', 'last_event': 'ok'}
+        alarm._zones['tamper'] = {'type': '24h', 'group': 'always', 'last_event': 'ok'}
+
+    def test_bypass_zone(self):
+        result = alarm.bypass('window')
+        self.assertIn('window', alarm._bypassed)
+        self.assertIn('bypassed', result)
+
+    def test_bypass_nonexistent_zone(self):
+        result = alarm.bypass('bogus')
+        self.assertIn('not found', result)
+
+    def test_bypass_24h_refused(self):
+        result = alarm.bypass('tamper')
+        self.assertNotIn('tamper', alarm._bypassed)
+        self.assertIn('Cannot', result)
+
+    def test_bypassed_zone_ignored_when_armed(self):
+        alarm._state = alarm.ARMED
+        alarm._arm_mode = 'full'
+        alarm._bypassed.add('window')
+        result = alarm.zone_trigger('window', 'triggered')
+        self.assertEqual(alarm._state, alarm.ARMED)
+        self.assertIn('bypassed', result)
+
+    def test_non_bypassed_zone_still_triggers(self):
+        alarm._state = alarm.ARMED
+        alarm._arm_mode = 'full'
+        alarm._bypassed.add('window')
+        alarm.zone_trigger('door', 'triggered')
+        self.assertEqual(alarm._state, alarm.ENTRY_DELAY)
+
+    def test_disarm_clears_bypass(self):
+        alarm._bypassed.add('window')
+        alarm._state = alarm.ARMED
+        alarm._arm_mode = 'full'
+        alarm.disarm()
+        self.assertEqual(alarm._bypassed, set())
+
+    def test_unbypass(self):
+        alarm._bypassed.add('window')
+        result = alarm.unbypass('window')
+        self.assertNotIn('window', alarm._bypassed)
+        self.assertIn('unbypass', result)
+
+    def test_unbypass_not_bypassed(self):
+        result = alarm.unbypass('window')
+        self.assertIn('not bypassed', result)
+
+    def test_status_shows_bypassed(self):
+        alarm._bypassed.add('window')
+        s = alarm.status()
+        self.assertIn('window', s['bypassed'])
+
+    def test_24h_zone_not_affected_by_bypass(self):
+        # 24h zones can't be bypassed, but verify trigger still works
+        alarm._state = alarm.ARMED
+        alarm._arm_mode = 'full'
+        alarm.zone_trigger('tamper', 'triggered')
+        self.assertEqual(alarm._state, alarm.ALARM)
+
+
+class TestCrossZone(unittest.TestCase):
+    """Test cross-zone (dual trigger) feature."""
+
+    def setUp(self):
+        _reset_module()
+        alarm._zones['motion_hall'] = {
+            'type': 'cross', 'group': 'interior', 'last_event': 'ok',
+            'cross_pair': 'motion_kitchen', 'cross_window': 30
+        }
+        alarm._zones['motion_kitchen'] = {
+            'type': 'cross', 'group': 'interior', 'last_event': 'ok',
+            'cross_pair': 'motion_hall', 'cross_window': 30
+        }
+        alarm._state = alarm.ARMED
+        alarm._arm_mode = 'full'
+
+    def test_single_cross_zone_no_alarm(self):
+        result = alarm.zone_trigger('motion_hall', 'triggered')
+        self.assertEqual(alarm._state, alarm.ARMED)
+        self.assertIn('waiting for pair', result)
+
+    def test_both_cross_zones_within_window_alarm(self):
+        alarm.zone_trigger('motion_hall', 'triggered')
+        result = alarm.zone_trigger('motion_kitchen', 'triggered')
+        self.assertEqual(alarm._state, alarm.ALARM)
+        self.assertIn('ALARM', result)
+        self.assertIn('motion_hall', result)
+        self.assertIn('motion_kitchen', result)
+
+    def test_both_cross_zones_outside_window_no_alarm(self):
+        alarm._zones['motion_hall']['last_trigger_time'] = time.time() - 60
+        result = alarm.zone_trigger('motion_kitchen', 'triggered')
+        self.assertEqual(alarm._state, alarm.ARMED)
+        self.assertIn('waiting for pair', result)
+
+    def test_cross_zone_adds_both_to_memory(self):
+        alarm.zone_trigger('motion_hall', 'triggered')
+        alarm.zone_trigger('motion_kitchen', 'triggered')
+        mem = alarm.alarm_memory()
+        self.assertIn('motion_hall', mem)
+        self.assertIn('motion_kitchen', mem)
+
+    def test_cross_zone_ignored_when_disarmed(self):
+        alarm._state = alarm.DISARMED
+        result = alarm.zone_trigger('motion_hall', 'triggered')
+        self.assertEqual(alarm._state, alarm.DISARMED)
+        self.assertIn('Ignored', result)
+
+    def test_cross_zone_ignored_in_inactive_group(self):
+        alarm._arm_mode = 'night'  # interior not active
+        result = alarm.zone_trigger('motion_hall', 'triggered')
+        self.assertEqual(alarm._state, alarm.ARMED)
+        self.assertIn('not active', result)
+
+    def test_cross_zone_bypassed(self):
+        alarm._bypassed.add('motion_hall')
+        result = alarm.zone_trigger('motion_hall', 'triggered')
+        self.assertEqual(alarm._state, alarm.ARMED)
+        self.assertIn('bypassed', result)
+
+    def test_add_cross_zone(self):
+        result = alarm.add_zone('pir1', type='cross', group='interior',
+                                cross_pair='pir2', cross_window=20)
+        self.assertIn('pir1', alarm._zones)
+        self.assertEqual(alarm._zones['pir1']['cross_pair'], 'pir2')
+        self.assertEqual(alarm._zones['pir1']['cross_window'], 20)
+        self.assertIn('pair=pir2', result)
+
+    def test_add_cross_zone_without_pair_refused(self):
+        result = alarm.add_zone('pir1', type='cross', group='interior')
+        self.assertNotIn('pir1', alarm._zones)
+        self.assertIn('cross_pair', result)
+
+    def test_reverse_trigger_order(self):
+        alarm.zone_trigger('motion_kitchen', 'triggered')
+        result = alarm.zone_trigger('motion_hall', 'triggered')
+        self.assertEqual(alarm._state, alarm.ALARM)
+        self.assertIn('ALARM', result)
+
+
+class TestSupervision(unittest.TestCase):
+    """Test sensor supervision (heartbeat)."""
+
+    def setUp(self):
+        _reset_module()
+        alarm._zones['window'] = {'type': 'instant', 'group': 'perimeter', 'last_event': 'ok'}
+        alarm._zones['door'] = {'type': 'delayed', 'group': 'perimeter', 'last_event': 'ok', 'pin': 19, 'sensor': mock.MagicMock()}
+
+    def test_supervise_zone(self):
+        result = alarm.supervise('window', timeout=300)
+        self.assertEqual(alarm._zones['window']['supervision'], 300)
+        self.assertIn('supervised', result)
+
+    def test_supervise_nonexistent(self):
+        result = alarm.supervise('bogus')
+        self.assertIn('not found', result)
+
+    def test_supervise_gpio_refused(self):
+        result = alarm.supervise('door')
+        self.assertIn('Cannot', result)
+        self.assertNotIn('supervision', alarm._zones['door'])
+
+    def test_unsupervise(self):
+        alarm._zones['window']['supervision'] = 300
+        result = alarm.unsupervise('window')
+        self.assertNotIn('supervision', alarm._zones['window'])
+        self.assertIn('removed', result)
+
+    def test_zone_trigger_updates_last_seen(self):
+        alarm._zones['window']['supervision'] = 300
+        alarm._zones['window']['last_seen'] = 0
+        alarm._state = alarm.DISARMED
+        alarm.zone_trigger('window', 'triggered')
+        self.assertGreater(alarm._zones['window']['last_seen'], 0)
+
+    def test_trouble_when_timeout_exceeded(self):
+        alarm._zones['window']['supervision'] = 300
+        alarm._zones['window']['last_seen'] = time.time() - 600
+        trouble = alarm._get_trouble_zones()
+        self.assertIn('window', trouble)
+
+    def test_no_trouble_when_recent(self):
+        alarm._zones['window']['supervision'] = 300
+        alarm._zones['window']['last_seen'] = time.time()
+        trouble = alarm._get_trouble_zones()
+        self.assertEqual(trouble, [])
+
+    def test_arm_refused_with_trouble(self):
+        alarm._zones['window']['supervision'] = 300
+        alarm._zones['window']['last_seen'] = time.time() - 600
+        result = alarm.arm(mode='full')
+        self.assertEqual(alarm._state, alarm.DISARMED)
+        self.assertIn('trouble', result)
+
+    def test_arm_force_with_trouble(self):
+        alarm._zones['window']['supervision'] = 300
+        alarm._zones['window']['last_seen'] = time.time() - 600
+        result = alarm.arm(mode='full', force=True)
+        self.assertEqual(alarm._state, alarm.ARMING)
+
+    def test_status_shows_trouble(self):
+        alarm._zones['window']['supervision'] = 300
+        alarm._zones['window']['last_seen'] = time.time() - 600
+        s = alarm.status()
+        self.assertIn('window', s['trouble'])
+
+    def test_reset_event_also_updates_last_seen(self):
+        alarm._zones['window']['supervision'] = 300
+        alarm._zones['window']['last_seen'] = 0
+        alarm._state = alarm.DISARMED
+        alarm.zone_trigger('window', 'reset')
+        self.assertGreater(alarm._zones['window']['last_seen'], 0)
 
 
 if __name__ == "__main__":
