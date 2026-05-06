@@ -1,0 +1,31 @@
+{
+    "version": "1.0.0",
+    "urls": [
+        [
+            "alarm_system/__init__.py",
+            "github:fmandl/micrOSPackages/alarm_system/package/__init__.py"
+        ],
+        [
+            "LM_alarm_system.py",
+            "github:fmandl/micrOSPackages/alarm_system/package/LM_alarm_system.py"
+        ],
+        [
+            "alarm_system/door_sensor.py",
+            "github:fmandl/micrOSPackages/alarm_system/package/alarm_system/door_sensor.py"
+        ],
+        [
+            "alarm_system/pacman.json",
+            "github:fmandl/micrOSPackages/alarm_system/package/pacman.json"
+        ]
+    ],
+    "deps": [
+        [
+            "github:fmandl/micrOSPackages/sim800",
+            "master"
+        ],
+        [
+            "github:fmandl/micrOSPackages/phone_manager",
+            "master"
+        ]
+    ]
+}

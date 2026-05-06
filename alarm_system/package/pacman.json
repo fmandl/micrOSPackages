@@ -1,0 +1,19 @@
+{
+    "versions": {
+        "packager": "0.1.0",
+        "package": "1.0.0"
+    },
+    "url": "github:fmandl/micrOSPackages/alarm_system",
+    "layout": {
+        "/modules": [
+            "LM_alarm_system.py"
+        ],
+        "/lib/alarm_system": [
+            "__init__.py",
+            "door_sensor.py"
+        ],
+        "/web": [],
+        "/web/data": [],
+        "/data": []
+    }
+}
