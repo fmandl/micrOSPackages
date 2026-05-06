@@ -112,6 +112,8 @@ users list_books
 | `info` | str | Free-text additional info |
 | `valid_from` | str | Access start time `YYYY-MM-DDTHH:MM` or empty for immediate |
 | `expires` | str | Access end time `YYYY-MM-DDTHH:MM` or empty for no expiry |
+| `daily_from` | str | Daily access start `HH:MM` or empty for no restriction |
+| `daily_to` | str | Daily access end `HH:MM` or empty for no restriction |
 
 ## Integration Example
 
@@ -121,12 +123,18 @@ import LM_users as users
 # Garage uses its own phonebook
 users.load(json_file='garage_users.json', book='garage')
 
+# Add a cleaner with daily time window (08:00-17:00 only)
+users.add_user(phone='+36202222222', name='Cleaner', role='user',
+               daily_from='08:00', daily_to='17:00', book='garage')
+
 # Check access in a call handler
 result = users.get_user(phone=caller, book='garage')
 if result:
     user = result[0]
     if user["status"] == "A" and not users.check_access(user["phone"], book='garage'):
         print(f"Access granted for {user['name']}")
+    else:
+        print(f"Access denied (outside daily window or expired)")
 ```
 
 ## Tests
@@ -136,7 +144,7 @@ cd phone_manager
 python3 -m pytest tests/test_users.py -v
 ```
 
-112 tests (103 core + 9 multi-phonebook).
+124 tests (103 core + 9 multi-phonebook + 12 daily time window).
 
 ## Author
 

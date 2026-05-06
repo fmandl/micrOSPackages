@@ -294,24 +294,37 @@ Someone breaks window:
 
 ### Scenario 8: Multiple Users with Different Permissions
 
-**Situation**: Home with owner (full control) and cleaner (can only disarm during work hours).
+**Situation**: Home with owner (full control) and cleaner (can only access during work hours, Mon-Fri 08:00-17:00).
 
 ```commandline
 # Setup phonebook
 users load json_file="alarm_users.json" book="alarm"
 users add_user phone="+36201111111" name="Owner" role="admin" book="alarm"
-users add_user phone="+36202222222" name="Cleaner" role="user" valid_from="2025-01-01T08:00" expires="2025-12-31T17:00" book="alarm"
+users add_user phone="+36202222222" name="Cleaner" role="user" daily_from="08:00" daily_to="17:00" book="alarm"
 ```
 
-**Owner can (via SMS):**
+**Owner can (via SMS, anytime):**
 - `arm`, `arm night`, `disarm`, `status`
 - `bypass window_kitchen`
 - `auto_arm 3600 night`
 
-**Cleaner can (via SMS):**
+**Cleaner can (via SMS, only 08:00-17:00):**
 - `arm`, `disarm`, `status`
-- Cannot: `bypass`, `auto_arm`
-- Access only valid 08:00-17:00 (outside hours → ignored)
+- Cannot: `bypass`, `auto_arm` (admin only)
+- Outside 08:00-17:00 → SMS ignored
+
+**How daily time window works:**
+- `daily_from="08:00"` → access starts at 08:00 every day
+- `daily_to="17:00"` → access ends at 17:00 every day
+- At 07:59 cleaner sends "disarm" → ignored
+- At 08:00 cleaner sends "disarm" → works
+- At 17:00 cleaner sends "disarm" → ignored
+
+**Combine with date range for temporary access:**
+```commandline
+# Cleaner only valid January 2025, daily 08:00-17:00
+users add_user phone="+36202222222" name="Cleaner" role="user" valid_from="2025-01-01T00:00" expires="2025-02-01T00:00" daily_from="08:00" daily_to="17:00" book="alarm"
+```
 
 ---
 

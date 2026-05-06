@@ -77,7 +77,7 @@ class UserManagement:
             return f"Save failed: {e}"
         return None
 
-    def add_user(self, phone, name, status='A', role='user', info='', valid_from='', expires=''):
+    def add_user(self, phone, name, status='A', role='user', info='', valid_from='', expires='', daily_from='', daily_to=''):
         """
         Add a new user.
         :param phone str: phone number (unique identifier)
@@ -87,6 +87,8 @@ class UserManagement:
         :param info str: additional info
         :param valid_from str: start datetime 'YYYY-MM-DDTHH:MM' or '' for immediate
         :param expires str: end datetime 'YYYY-MM-DDTHH:MM' or '' for no expiry
+        :param daily_from str: daily access start 'HH:MM' or '' for no restriction
+        :param daily_to str: daily access end 'HH:MM' or '' for no restriction
         :return str: success or error message
         """
         phone = self._normalize_phone(phone)
@@ -102,8 +104,17 @@ class UserManagement:
         exp_ts = self._parse_datetime(expires)
         if exp_ts == -1:
             return f"Invalid expires format: '{_sanitize(expires)}'. Use 'YYYY-MM-DDTHH:MM'."
-        self.users.append({'phone': phone, 'name': name, 'status': status, 'role': role,
-                           'info': info, 'valid_from': vf_ts, 'expires': exp_ts})
+        if daily_from and not self._valid_time_str(daily_from):
+            return f"Invalid daily_from format: '{_sanitize(daily_from)}'. Use 'HH:MM'."
+        if daily_to and not self._valid_time_str(daily_to):
+            return f"Invalid daily_to format: '{_sanitize(daily_to)}'. Use 'HH:MM'."
+        user = {'phone': phone, 'name': name, 'status': status, 'role': role,
+                'info': info, 'valid_from': vf_ts, 'expires': exp_ts}
+        if daily_from:
+            user['daily_from'] = daily_from
+        if daily_to:
+            user['daily_to'] = daily_to
+        self.users.append(user)
         self._phone_index[phone] = self.users[-1]
         err = self._save_users()
         return err if err else f"User {_sanitize(name)} added successfully."
@@ -260,6 +271,7 @@ class UserManagement:
     def check_access(self, phone):
         """
         Check if a user's access is currently valid.
+        Checks: valid_from/expires (date range) + daily_from/daily_to (daily time window).
         If not yet active or expired, set status to B and mark info as 'inactive'.
         :param phone str: phone number to check
         :return bool: True if access denied (inactive), False if access OK
@@ -277,7 +289,34 @@ class UserManagement:
         if exp and now >= exp:
             self._set_inactive(user)
             return True
+        # Daily time window check
+        daily_from = user.get('daily_from', '')
+        daily_to = user.get('daily_to', '')
+        if daily_from or daily_to:
+            t = time.localtime()
+            current_minutes = t[3] * 60 + t[4]
+            if daily_from:
+                h, m = daily_from.split(':')
+                from_minutes = int(h) * 60 + int(m)
+            else:
+                from_minutes = 0
+            if daily_to:
+                h, m = daily_to.split(':')
+                to_minutes = int(h) * 60 + int(m)
+            else:
+                to_minutes = 1440
+            if current_minutes < from_minutes or current_minutes >= to_minutes:
+                return True
         return False
+
+    @staticmethod
+    def _valid_time_str(value):
+        """Validate HH:MM format."""
+        try:
+            h, m = value.split(':')
+            return 0 <= int(h) <= 23 and 0 <= int(m) <= 59
+        except Exception:
+            return False
 
     def _set_inactive(self, user):
         """Mark user as inactive: status B, add 'inactive' to info."""
@@ -360,7 +399,7 @@ def _get(book='default'):
         raise RuntimeError(f"Phonebook '{book}' not loaded. Call load() first.")
     return inst
 
-def add_user(phone, name, status='A', role='user', info='', valid_from='', expires='', book='default'):
+def add_user(phone, name, status='A', role='user', info='', valid_from='', expires='', daily_from='', daily_to='', book='default'):
     """
     Add a new user.
     :param phone str: phone number (unique identifier)
@@ -370,10 +409,12 @@ def add_user(phone, name, status='A', role='user', info='', valid_from='', expir
     :param info str: additional info
     :param valid_from str: start datetime 'YYYY-MM-DDTHH:MM' or '' for immediate
     :param expires str: end datetime 'YYYY-MM-DDTHH:MM' or '' for no expiry
+    :param daily_from str: daily access start 'HH:MM' or '' for no restriction
+    :param daily_to str: daily access end 'HH:MM' or '' for no restriction
     :param book str: phonebook name (default: 'default')
     :return str: success or error message
     """
-    return _get(book).add_user(phone, name, status, role, info, valid_from, expires)
+    return _get(book).add_user(phone, name, status, role, info, valid_from, expires, daily_from, daily_to)
 
 def modify_user(phone, book='default', **kwargs):
     """

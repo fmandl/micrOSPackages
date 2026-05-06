@@ -8,6 +8,7 @@ Run:
 
 import unittest
 import sys
+from unittest import mock
 import os
 import time
 import tempfile
@@ -764,3 +765,112 @@ class TestMultiPhonebook(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main(verbosity=2)
+
+
+class TestDailyTimeWindow(unittest.TestCase):
+    """Test daily_from/daily_to time window access control."""
+
+    def setUp(self):
+        um_mod.UserManagement.INSTANCES = {}
+        self.tmpdir = tempfile.mkdtemp()
+        um_mod.data_dir = lambda f: os.path.join(self.tmpdir, f)
+        um_mod.load('daily_test.json', book='daily')
+
+    def tearDown(self):
+        um_mod.UserManagement.INSTANCES = {}
+        import shutil
+        shutil.rmtree(self.tmpdir, ignore_errors=True)
+
+    def test_add_user_with_daily_window(self):
+        result = um_mod.add_user('+36201111111', 'Worker', daily_from='08:00', daily_to='17:00', book='daily')
+        self.assertIn('added', result)
+        user = um_mod.get_user(phone='+36201111111', book='daily')[0]
+        self.assertEqual(user['daily_from'], '08:00')
+        self.assertEqual(user['daily_to'], '17:00')
+
+    def test_add_user_invalid_daily_from(self):
+        result = um_mod.add_user('+36201111111', 'Worker', daily_from='25:00', book='daily')
+        self.assertIn('Invalid daily_from', result)
+
+    def test_add_user_invalid_daily_to(self):
+        result = um_mod.add_user('+36201111111', 'Worker', daily_to='abc', book='daily')
+        self.assertIn('Invalid daily_to', result)
+
+    @mock.patch('time.localtime')
+    def test_access_within_window(self, mock_lt):
+        # 10:30 — within 08:00-17:00
+        mock_lt.return_value = (2025, 1, 15, 10, 30, 0, 0, 0, -1)
+        um_mod.add_user('+36201111111', 'Worker', daily_from='08:00', daily_to='17:00', book='daily')
+        denied = um_mod.check_access('+36201111111', book='daily')
+        self.assertFalse(denied)
+
+    @mock.patch('time.localtime')
+    def test_access_before_window(self, mock_lt):
+        # 07:00 — before 08:00
+        mock_lt.return_value = (2025, 1, 15, 7, 0, 0, 0, 0, -1)
+        um_mod.add_user('+36201111111', 'Worker', daily_from='08:00', daily_to='17:00', book='daily')
+        denied = um_mod.check_access('+36201111111', book='daily')
+        self.assertTrue(denied)
+
+    @mock.patch('time.localtime')
+    def test_access_after_window(self, mock_lt):
+        # 18:00 — after 17:00
+        mock_lt.return_value = (2025, 1, 15, 18, 0, 0, 0, 0, -1)
+        um_mod.add_user('+36201111111', 'Worker', daily_from='08:00', daily_to='17:00', book='daily')
+        denied = um_mod.check_access('+36201111111', book='daily')
+        self.assertTrue(denied)
+
+    @mock.patch('time.localtime')
+    def test_access_at_exact_start(self, mock_lt):
+        # 08:00 — exactly at start
+        mock_lt.return_value = (2025, 1, 15, 8, 0, 0, 0, 0, -1)
+        um_mod.add_user('+36201111111', 'Worker', daily_from='08:00', daily_to='17:00', book='daily')
+        denied = um_mod.check_access('+36201111111', book='daily')
+        self.assertFalse(denied)
+
+    @mock.patch('time.localtime')
+    def test_access_at_exact_end(self, mock_lt):
+        # 17:00 — at end (exclusive)
+        mock_lt.return_value = (2025, 1, 15, 17, 0, 0, 0, 0, -1)
+        um_mod.add_user('+36201111111', 'Worker', daily_from='08:00', daily_to='17:00', book='daily')
+        denied = um_mod.check_access('+36201111111', book='daily')
+        self.assertTrue(denied)
+
+    @mock.patch('time.localtime')
+    def test_no_daily_restriction_always_ok(self, mock_lt):
+        # No daily_from/daily_to — always accessible
+        mock_lt.return_value = (2025, 1, 15, 3, 0, 0, 0, 0, -1)
+        um_mod.add_user('+36201111111', 'Owner', book='daily')
+        denied = um_mod.check_access('+36201111111', book='daily')
+        self.assertFalse(denied)
+
+    @mock.patch('time.localtime')
+    def test_only_daily_from(self, mock_lt):
+        # daily_from='08:00', no daily_to — accessible from 08:00 onwards
+        mock_lt.return_value = (2025, 1, 15, 7, 59, 0, 0, 0, -1)
+        um_mod.add_user('+36201111111', 'Worker', daily_from='08:00', book='daily')
+        denied = um_mod.check_access('+36201111111', book='daily')
+        self.assertTrue(denied)
+        mock_lt.return_value = (2025, 1, 15, 22, 0, 0, 0, 0, -1)
+        denied = um_mod.check_access('+36201111111', book='daily')
+        self.assertFalse(denied)
+
+    @mock.patch('time.localtime')
+    def test_only_daily_to(self, mock_lt):
+        # no daily_from, daily_to='17:00' — accessible until 17:00
+        mock_lt.return_value = (2025, 1, 15, 5, 0, 0, 0, 0, -1)
+        um_mod.add_user('+36201111111', 'Worker', daily_to='17:00', book='daily')
+        denied = um_mod.check_access('+36201111111', book='daily')
+        self.assertFalse(denied)
+        mock_lt.return_value = (2025, 1, 15, 17, 0, 0, 0, 0, -1)
+        denied = um_mod.check_access('+36201111111', book='daily')
+        self.assertTrue(denied)
+
+    def test_daily_window_persisted(self):
+        um_mod.add_user('+36201111111', 'Worker', daily_from='09:00', daily_to='18:00', book='daily')
+        # Reload
+        um_mod.unload(book='daily')
+        um_mod.load('daily_test.json', book='daily')
+        user = um_mod.get_user(phone='+36201111111', book='daily')[0]
+        self.assertEqual(user['daily_from'], '09:00')
+        self.assertEqual(user['daily_to'], '18:00')

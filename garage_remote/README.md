@@ -51,6 +51,29 @@ garage garage_alarm_on phone="+36201234567"
 
 An authorized caller (status "A" in phone_manager) can open the garage door by calling the device. The call is automatically rejected and the door opens.
 
+## User Management
+
+The garage uses its own isolated phonebook (`book='garage'`):
+
+```commandline
+users load json_file="garage_users.json" book="garage"
+users add_user phone="+36201234567" name="Owner" role="admin" book="garage"
+users add_user phone="+36202222222" name="Cleaner" role="user" daily_from="08:00" daily_to="17:00" book="garage"
+```
+
+### Access control
+
+| Field | Effect |
+|-------|--------|
+| `status="B"` | Blocked — all access denied |
+| `valid_from` / `expires` | Date range — access only within period |
+| `daily_from` / `daily_to` | Daily window — access only during hours (e.g. 08:00-17:00) |
+
+Example: cleaner can open garage only Mon-Fri 08:00-17:00, valid for January 2025:
+```commandline
+users add_user phone="+36202222222" name="Cleaner" role="user" valid_from="2025-01-01T00:00" expires="2025-02-01T00:00" daily_from="08:00" daily_to="17:00" book="garage"
+```
+
 ## SMS-based Alarm Control
 
 | Command | Description |
