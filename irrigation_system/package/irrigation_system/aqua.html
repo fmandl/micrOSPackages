@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <meta name="theme-color" content="#101519" />
+  <title>Aqua Irrigation</title>
+  <link rel="stylesheet" href="/irrigation_system/aqua.css" />
+  <script src="/uapi.js" defer></script>
+  <script src="/irrigation_system/aqua.js" defer></script>
+</head>
+<body>
+  <main class="app-shell">
+    <header class="topbar">
+      <div>
+        <p class="eyebrow">micrOS</p>
+        <h1>Aqua Irrigation</h1>
+      </div>
+      <div class="status-strip" aria-live="polite">
+        <span id="readyBadge" class="badge">sync</span>
+        <span id="pumpBadge" class="badge">pump</span>
+        <span id="levelBadge" class="badge">tank</span>
+      </div>
+    </header>
+
+    <section class="dashboard-grid">
+      <section class="schematic-panel" aria-label="Garden schematic">
+        <div class="schematic-head">
+          <div>
+            <h2>Garden</h2>
+            <p id="schemeSummary">-- heads</p>
+          </div>
+          <button id="refreshBtn" class="icon-button" title="Refresh" type="button">&#8635;</button>
+        </div>
+
+        <div class="garden-schematic">
+          <div class="tank-stack">
+            <div class="tank-caption">
+              <span>Tank</span>
+              <strong id="tankCapacity">-- L</strong>
+            </div>
+            <div class="tank">
+              <div id="tankFill" class="tank-fill"></div>
+              <div class="tank-glass"></div>
+              <div id="minLevelMarker" class="min-level-marker">
+                <span id="minLevelLabel">Min -- cm</span>
+              </div>
+              <div id="waterHeightMarker" class="water-height-marker">
+                <span id="waterHeightLabel">-- cm</span>
+              </div>
+              <div class="tank-readout">
+                <strong id="tankPercent">--%</strong>
+                <span id="tankVolume">-- L</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="flow-chart">
+            <div class="tank-link" aria-hidden="true"></div>
+            <div class="pump-node">
+              <span class="pump-icon">&#9679;</span>
+              <span class="pump-label">Pump</span>
+              <strong id="pumpState">Idle</strong>
+              <small id="pumpFlow">-- L/h</small>
+            </div>
+            <div class="pipe-field">
+              <div class="pipe-line" aria-hidden="true"></div>
+              <div id="headGrid" class="head-grid"></div>
+              <div class="soil-panel">
+                <div class="soil-panel-head">
+                  <strong>Soil moisture</strong>
+                  <span id="soilSummary">-- sensors</span>
+                </div>
+                <div id="soilGrid" class="soil-grid"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <aside class="control-panel">
+        <section class="run-panel">
+          <h2>Run</h2>
+          <div class="input-grid two">
+            <label>
+              <span>Total L</span>
+              <input id="runVolume" type="number" min="0" step="0.1" value="1" inputmode="decimal" />
+            </label>
+            <label>
+              <span>L / head</span>
+              <input id="runPerHead" type="number" min="0" step="0.01" value="0.25" inputmode="decimal" />
+            </label>
+          </div>
+          <div class="run-preview">
+            <div>
+              <span id="previewDurationLabel">Pump runtime</span>
+              <strong id="previewDuration">-- s</strong>
+            </div>
+            <div id="availableAfterCard">
+              <span id="previewWaterLabel">Available after</span>
+              <strong id="previewAvailableAfter">-- L</strong>
+            </div>
+          </div>
+          <div class="button-row">
+            <button id="waterBtn" class="primary" type="button" title="Start watering">&#9654; Water</button>
+            <button id="stopBtn" class="danger" type="button" title="Stop pump">&#9632; Stop</button>
+          </div>
+          <div class="run-command">
+            <span>Scheduler command</span>
+            <input id="runCommandInput" type="text" value="aqua water volume_l=1" readonly aria-label="Scheduler command" />
+          </div>
+        </section>
+
+        <section class="metric-list">
+          <div class="metric">
+            <span>Available</span>
+            <strong id="usableWater">-- L</strong>
+          </div>
+          <div class="metric">
+            <span>Pump</span>
+            <strong id="metricPump">-- L/h</strong>
+          </div>
+          <div class="metric">
+            <span>Head</span>
+            <strong id="metricHead">-- L/h</strong>
+          </div>
+          <div class="metric">
+            <span>Reserve</span>
+            <strong id="metricReserve">-- cm / -- L</strong>
+          </div>
+          <div class="metric">
+            <span id="metricSensorLabel">Water level (--)</span>
+            <strong id="metricSensor">--</strong>
+          </div>
+        </section>
+      </aside>
+    </section>
+
+    <section class="settings-panel">
+      <div class="section-title">
+        <h2>Configuration</h2>
+        <span id="saveState">not saved</span>
+      </div>
+
+      <form id="configForm" class="config-form">
+        <fieldset class="config-group">
+          <legend>Pump</legend>
+          <label>
+            <span>Pump L/h</span>
+            <input id="pumpFlowInput" name="pump_l_hour" type="number" min="0.1" step="any" inputmode="decimal" />
+          </label>
+          <label id="pumpPinField">
+            <span>Pump pin</span>
+            <input id="pumpPinInput" name="pump_pin" type="number" min="0" step="1" inputmode="numeric" />
+            <small id="pumpPinHint" class="field-hint" hidden></small>
+          </label>
+        </fieldset>
+
+        <fieldset class="config-group">
+          <legend>Tank</legend>
+          <label>
+            <span>Width cm</span>
+            <input id="tankWidthInput" name="tank_width_cm" type="number" min="0.1" step="any" inputmode="decimal" />
+          </label>
+          <label>
+            <span>Depth cm</span>
+            <input id="tankDepthInput" name="tank_depth_cm" type="number" min="0.1" step="any" inputmode="decimal" />
+          </label>
+          <label>
+            <span>Height cm</span>
+            <input id="tankHeightInput" name="tank_height_cm" type="number" min="0.1" step="any" inputmode="decimal" />
+          </label>
+          <label>
+            <span>Min level cm</span>
+            <input id="minLevelInput" name="min_level_cm" type="number" min="0" step="any" inputmode="decimal" />
+          </label>
+          <label>
+            <span>Level module</span>
+            <select id="levelModuleInput" name="level_module">
+              <option value="manual">No sensor</option>
+              <option value="rcwl1670">RCWL-1670</option>
+              <option value="hcsr04">HC-SR04</option>
+            </select>
+          </label>
+          <label id="waterDistanceField">
+            <span>Water distance cm</span>
+            <input id="waterDistanceInput" name="water_distance_cm" type="number" min="0" step="any" inputmode="decimal" />
+          </label>
+          <label id="sensorDistanceField" hidden>
+            <span>Sensor distance cm</span>
+            <input id="sensorDistanceReadout" type="text" value="-- cm" readonly />
+          </label>
+        </fieldset>
+
+        <fieldset class="config-group compact">
+          <legend>Heads</legend>
+          <label>
+            <span>Irrigation heads</span>
+            <input id="headCountInput" name="head_count" type="number" min="1" max="100" step="1" inputmode="numeric" />
+          </label>
+        </fieldset>
+
+        <fieldset class="config-group compact">
+          <legend>Sensors</legend>
+          <label>
+            <span>Soil sensors</span>
+            <input id="soilSensorCountInput" name="soil_sensor_count" type="number" min="0" max="100" step="1" inputmode="numeric" />
+          </label>
+          <button id="saveConfigBtn" class="primary" type="submit">Save</button>
+        </fieldset>
+      </form>
+    </section>
+
+    <p id="messageLine" class="message-line" role="status">Starting...</p>
+  </main>
+</body>
+</html>

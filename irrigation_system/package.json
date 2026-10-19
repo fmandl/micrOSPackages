@@ -1,0 +1,55 @@
+{
+    "version": "0.1.0",
+    "urls": [
+        [
+            "LM_aqua.py",
+            "github:fmandl/micrOSPackages/irrigation_system/package/LM_aqua.py"
+        ],
+        [
+            "irrigation_system/__init__.py",
+            "github:fmandl/micrOSPackages/irrigation_system/package/__init__.py"
+        ],
+        [
+            "irrigation_system/actuators.py",
+            "github:fmandl/micrOSPackages/irrigation_system/package/actuators.py"
+        ],
+        [
+            "irrigation_system/irrigation_system/aqua.css",
+            "github:fmandl/micrOSPackages/irrigation_system/package/irrigation_system/aqua.css"
+        ],
+        [
+            "irrigation_system/irrigation_system/aqua.html",
+            "github:fmandl/micrOSPackages/irrigation_system/package/irrigation_system/aqua.html"
+        ],
+        [
+            "irrigation_system/irrigation_system/aqua.js",
+            "github:fmandl/micrOSPackages/irrigation_system/package/irrigation_system/aqua.js"
+        ],
+        [
+            "irrigation_system/monitoring.py",
+            "github:fmandl/micrOSPackages/irrigation_system/package/monitoring.py"
+        ],
+        [
+            "irrigation_system/state_machine.py",
+            "github:fmandl/micrOSPackages/irrigation_system/package/state_machine.py"
+        ],
+        [
+            "irrigation_system/status_led.py",
+            "github:fmandl/micrOSPackages/irrigation_system/package/status_led.py"
+        ],
+        [
+            "irrigation_system/button.py",
+            "github:fmandl/micrOSPackages/irrigation_system/package/button.py"
+        ],
+        [
+            "irrigation_system/pacman.json",
+            "github:fmandl/micrOSPackages/irrigation_system/package/pacman.json"
+        ]
+    ],
+    "deps": [
+        [
+            "github:BxNxM/micrOSPackages/ultrasonic_distance",
+            "main"
+        ]
+    ]
+}
