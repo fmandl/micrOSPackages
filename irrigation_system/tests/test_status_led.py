@@ -111,5 +111,67 @@ class StatusLedHookTest(unittest.TestCase):
         self.assertIsNone(error)
 
 
+def _load_status_led():
+    """Load the real StatusLed with stubbed hardware (NeoPixel capture, no async)."""
+    captured = {"writes": []}
+
+    class FakeNeo:
+        def __init__(self, pin, n):
+            self.n = n
+            self._buf = [None] * n
+        def __setitem__(self, i, rgb):
+            self._buf[i] = rgb
+        def write(self):
+            captured["writes"].append(tuple(self._buf))
+
+    machine = types.ModuleType("machine")
+    machine.Pin = lambda *a, **k: object()
+    sys.modules["machine"] = machine
+    neo = types.ModuleType("neopixel")
+    neo.NeoPixel = FakeNeo
+    sys.modules["neopixel"] = neo
+    common = types.ModuleType("Common")
+    common.micro_task = None       # no async -> _start_blink does a single steady write
+    common.manage_task = None
+    sys.modules["Common"] = common
+    pkg = types.ModuleType("irrigation_system")
+    pkg.__path__ = [str(PACKAGE_DIR)]
+    sys.modules["irrigation_system"] = pkg
+    mspec = importlib.util.spec_from_file_location(
+        "irrigation_system.monitoring", PACKAGE_DIR / "monitoring.py")
+    monitoring = importlib.util.module_from_spec(mspec)
+    sys.modules["irrigation_system.monitoring"] = monitoring
+    mspec.loader.exec_module(monitoring)
+    pkg.monitoring = monitoring
+    sspec = importlib.util.spec_from_file_location(
+        "irrigation_system.status_led", PACKAGE_DIR / "status_led.py")
+    status_led = importlib.util.module_from_spec(sspec)
+    sspec.loader.exec_module(status_led)
+    return status_led, monitoring, captured
+
+
+class StatusLedColorTest(unittest.TestCase):
+    def setUp(self):
+        self.sl, self.monitoring, self.captured = _load_status_led()
+        self.monitoring.CONFIG.update({"led_pin": 6, "led_count": 1, "led_brightness": 100})
+        self.led = self.sl.StatusLed(self.monitoring.CONFIG)
+
+    def _last_write_color(self):
+        return self.captured["writes"][-1][0]  # first LED's colour
+
+    def test_low_water_blinks_yellow(self):
+        self.led.on_state_change("PAUSED", fault={"reason": "low_water"})
+        self.assertEqual(self._last_write_color(), self.sl.LOW_WATER_COLOR)
+
+    def test_generic_error_blinks_red(self):
+        self.led.on_state_change("RUNNING", error="pump_init_failed")
+        self.assertEqual(self._last_write_color(), self.sl.WARNING_COLOR)
+
+    def test_steady_running_timed_is_green(self):
+        self.led.set_run_hint({"mode": "timed"})
+        self.led.on_state_change("RUNNING")
+        self.assertEqual(self._last_write_color(), self.sl.STATE_COLORS["running_timed"])
+
+
 if __name__ == "__main__":
     unittest.main()

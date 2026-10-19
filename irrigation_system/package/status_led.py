@@ -42,8 +42,10 @@ STATE_COLORS = {
     "running_manual": (0, 25, 25),   # teal (distinct from timed)
     "paused":        (40, 25, 0),    # amber (intentional pause)
 }
-# Warning / error states blink in this colour.
-WARNING_COLOR = (50, 0, 0)           # red
+# Warning states blink. low_water has its own (yellow) colour; any other error
+# blinks in the generic warning colour (red).
+WARNING_COLOR = (50, 0, 0)           # red   - generic error/warning
+LOW_WATER_COLOR = (45, 30, 0)        # yellow - low water (tank refill needed)
 OFF = (0, 0, 0)
 # -----------------------------------------------------------------------------
 
@@ -114,10 +116,16 @@ class StatusLed:
     # ---- state machine hook ----
 
     def on_state_change(self, state, fault=None, error=None):
-        """Called after every transition. Steady colour, or blink on warning."""
+        """Called after every transition. Steady colour, or blink on warning.
+
+        low_water (fault.reason == 'low_water') blinks yellow; any other error
+        blinks red.
+        """
         try:
             warning = bool(fault) or bool(error)
             if warning:
+                reason = fault.get("reason") if isinstance(fault, dict) else None
+                self._blink_color = LOW_WATER_COLOR if reason == "low_water" else WARNING_COLOR
                 self._start_blink()
             else:
                 self._stop_blink()
@@ -125,6 +133,8 @@ class StatusLed:
         except Exception:
             # Never let LED issues break the state machine.
             pass
+
+    _blink_color = WARNING_COLOR
 
     # The state machine passes the run dict via set_run_hint before the hook,
     # so we can distinguish running_timed / running_manual.
@@ -144,7 +154,7 @@ class StatusLed:
     def _start_blink(self):
         if micro_task is None:
             # No async runtime (e.g. bare test) -> just show a steady warning colour.
-            self._write(WARNING_COLOR)
+            self._write(self._blink_color)
             return
         if self._blinking:
             return
@@ -161,7 +171,7 @@ class StatusLed:
 
     def blink_step(self, on):
         """One blink half-cycle (called by the task): warning colour or off."""
-        self._write(WARNING_COLOR if on else OFF)
+        self._write(self._blink_color if on else OFF)
 
 
 def _make_blink_task():
