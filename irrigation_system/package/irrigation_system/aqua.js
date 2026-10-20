@@ -5,6 +5,7 @@ const state = {
   runSource: "total",
   configDirty: false,
   settingsAt: 0,
+  blocked: null,   // transient reason when a start/resume was rejected (e.g. low_water)
 };
 
 const configFields = {
@@ -552,19 +553,27 @@ function renderFault(data = state.data) {
   const banner = byId("faultBanner");
   if (!banner) return;
   const fault = data?.fault;
-  if (!fault) {
-    banner.hidden = true;
-    banner.className = "fault-banner";
+  // Priority: a persistent backend fault (e.g. low_water auto-pause) wins;
+  // otherwise show a transient "blocked" reason from a rejected start/resume.
+  if (fault) {
+    banner.hidden = false;
+    if (fault.reason === "low_water") {
+      banner.className = "fault-banner is-low-water";
+      banner.textContent = "\u26A0 Low water \u2014 refill tank, then Resume";
+    } else {
+      banner.className = "fault-banner is-error";
+      banner.textContent = "\u26A0 " + (fault.reason || "Fault") + " \u2014 check device";
+    }
     return;
   }
-  banner.hidden = false;
-  if (fault.reason === "low_water") {
+  if (state.blocked === "low_water" || state.blocked === "not_enough_usable_water") {
+    banner.hidden = false;
     banner.className = "fault-banner is-low-water";
-    banner.textContent = "\u26A0 Low water \u2014 refill tank, then Resume";
-  } else {
-    banner.className = "fault-banner is-error";
-    banner.textContent = "\u26A0 " + (fault.reason || "Fault") + " \u2014 check device";
+    banner.textContent = "\u26A0 Not enough water \u2014 refill tank or lower the amount";
+    return;
   }
+  banner.hidden = true;
+  banner.className = "fault-banner";
 }
 
 function renderStatus(data) {
@@ -675,28 +684,36 @@ async function primaryAction() {
   state.busy = true;
   if (btn) btn.disabled = true;
   try {
+    let result = null;
     if (action === "start") {
       const run = waterRunPayload(runEstimate());
       if (!run.volume_l) {
         setMessage("Enter a water amount", "error");
         return;
       }
-      const data = await aquaCommand("start", run);
-      setMessage(data?.state === false ? (data.error || "Start blocked") : "Watering started",
-        data?.state === false ? "error" : "neutral");
+      result = await aquaCommand("start", run);
     } else if (action === "pause") {
-      await aquaCommand("pause");
-      setMessage("Paused");
+      result = await aquaCommand("pause");
     } else if (action === "resume") {
-      const data = await aquaCommand("resume");
-      setMessage(data?.state === false ? (data.error || "Resume blocked") : "Resumed",
-        data?.state === false ? "error" : "neutral");
+      result = await aquaCommand("resume");
+    }
+    // The LM returns a result object; state:false means the command was rejected
+    // (e.g. low_water lockout). It does NOT throw in that case.
+    if (result && result.state === false) {
+      const reason = result.error || "blocked";
+      state.blocked = (reason === "low_water" || reason === "not_enough_usable_water") ? reason : null;
+      setMessage(reason === "low_water" || reason === "not_enough_usable_water"
+        ? "Not enough water" : (action + " rejected: " + reason), "error");
+    } else {
+      state.blocked = null;
+      setMessage({ start: "Watering started", pause: "Paused", resume: "Resumed" }[action] || "OK");
     }
   } catch (err) {
     setMessage((action.charAt(0).toUpperCase() + action.slice(1)) + " command failed", "error");
   } finally {
     state.busy = false;
     await refresh();
+    renderFault();
   }
 }
 

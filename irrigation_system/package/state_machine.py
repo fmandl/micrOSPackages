@@ -123,7 +123,7 @@ class AquaStateMachine:
         """Dispatch an event. Returns a result dict (always includes 'state')."""
         if event not in _VALID.get(self.state, ()):  # reject invalid transitions
             result = self._result(False, error="invalid_transition")
-            self._notify_led(error=result.get("error"))
+            self._notify_led()
             return result
 
         handler = {
@@ -135,21 +135,25 @@ class AquaStateMachine:
             LOW_WATER: self._on_low_water,
         }[event]
         result = handler(**params)
-        self._notify_led(error=result.get("error"))
+        self._notify_led()
         return result
 
-    def _notify_led(self, error=None):
-        """Best-effort LED update after a transition (never raises)."""
+    def _notify_led(self):
+        """Best-effort LED update after a transition (never raises).
+
+        The LED reflects the *persistent* state only:
+          - IDLE/RUNNING/PAUSED steady colour,
+          - blinking only when self.fault is set (PAUSED after low_water).
+        A rejected command (start/resume blocked, invalid transition) does NOT
+        blink: it did not change the state, so the LED stays on the steady colour.
+        That feedback belongs to the GUI message line / level badge instead.
+        """
         if self.led is None:
             return
-        # invalid_transition is a rejected command, not a run fault: the state
-        # did not change, so don't turn it into a blinking warning.
-        if error == "invalid_transition":
-            error = None
         try:
             if hasattr(self.led, "set_run_hint"):
                 self.led.set_run_hint(self.run)
-            self.led.on_state_change(self.state, fault=self.fault, error=error)
+            self.led.on_state_change(self.state, fault=self.fault)
         except Exception:
             pass
 
