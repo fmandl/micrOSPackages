@@ -616,6 +616,14 @@ function renderLiveRun(data = state.data) {
     setText("previewWaterLabel", "Outgoing");
     setText("previewAvailableAfter", `${fmt(run.dispensed_l, " L", 3)} / ${fmt(run.target_l, " L", 3)}`);
     availableAfterCard?.classList.remove("is-alert");
+  } else if (fstate === "PAUSED" && run && run.infinite) {
+    // Paused manual run: no remaining time, show the SAVED elapsed instead.
+    state.countdown = null;
+    setText("previewDurationLabel", "Paused \u2014 elapsed");
+    setText("previewDuration", fmtClock(run.elapsed_s));
+    setText("previewWaterLabel", "Mode");
+    setText("previewAvailableAfter", "manual");
+    availableAfterCard?.classList.remove("is-alert");
   } else {
     state.countdown = null;
     const tank = state.data?.tank || {};
