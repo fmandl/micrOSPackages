@@ -1091,3 +1091,13 @@ select {
   gap: 6px;
 }
 .heads-group .head-name { flex: 1 1 auto; min-width: 0; }
+
+/* Save button on its own full-width row at the bottom of the config form */
+.config-save-row {
+  grid-column: 1 / -1;
+  display: flex;
+  justify-content: flex-end;
+}
+.config-save-row .primary {
+  min-width: 140px;
+}
