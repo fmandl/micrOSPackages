@@ -100,6 +100,9 @@ def load(web=True, pump_pin=None):
     """
     if web:
         _register_web()
+    # Restore persisted configuration from /data (tank sizes, level_module, pins, ...)
+    # BEFORE building the controller/sensors, so pin binding uses the saved values.
+    monitoring.load_config()
     # (Re)build the state machine; its constructor restores a persisted run
     # (timed -> PAUSED, manual -> IDLE) per the reboot-safety policy.
     global _CTRL, _FSM, _LED, _BTN

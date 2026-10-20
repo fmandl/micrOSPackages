@@ -2,6 +2,17 @@
 Tank, level-sensor, flow, and soil monitoring helpers for Aqua.
 """
 
+try:
+    import ujson as json
+except Exception:
+    import json
+
+try:
+    from Common import data_dir
+except Exception:  # pragma: no cover - test env provides a stub Common
+    def data_dir(f_name=None):
+        return f_name if f_name else "."
+
 
 CONFIG = {
     "tank_width_cm": 40.0,
@@ -24,6 +35,37 @@ CONFIG = {
     "btn_long_ms": 1500.0,
     "btn_debounce_ms": 50.0,
 }
+
+CONFIG_FILE = "aqua_cfg.cache"
+
+
+def _config_path():
+    return data_dir(CONFIG_FILE)
+
+
+def save_config():
+    """Persist CONFIG to /data so configure/GUI changes survive reboot."""
+    try:
+        with open(_config_path(), "w") as f:
+            f.write(json.dumps(CONFIG))
+        return True
+    except Exception:
+        return False
+
+
+def load_config():
+    """Load persisted CONFIG from /data (merge onto defaults). Best-effort."""
+    try:
+        with open(_config_path(), "r") as f:
+            data = json.loads(f.read())
+        if isinstance(data, dict):
+            for key in CONFIG:            # only known keys, keep defaults for the rest
+                if key in data and data[key] is not None:
+                    CONFIG[key] = data[key]
+        return True
+    except Exception:
+        return False
+
 
 RUNTIME = {
     "last_level": None,
@@ -115,6 +157,7 @@ def update_config(data):
             CONFIG[key] = as_float(data.get(key), CONFIG.get(key), minimum, maximum)
     if is_manual_level_module() and "water_distance_cm" in data and data.get("water_distance_cm") is not None:
         CONFIG["water_distance_cm"] = as_float(data.get("water_distance_cm"), CONFIG.get("water_distance_cm"), 0, None)
+    save_config()   # persist every configure/GUI change to /data
 
 
 def tank():
