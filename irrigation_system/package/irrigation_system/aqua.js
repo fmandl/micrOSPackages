@@ -590,20 +590,21 @@ function renderLiveRun(data = state.data) {
 
   if (active && run && !run.infinite) {
     setText("previewDurationLabel", "Countdown");
-    // Seed the local countdown ONLY on a run change (new start/resume or different
-    // duration), NOT on every status poll -> the number counts down smoothly and
-    // is not yanked back every 2s. The 1s ticker owns the displayed value.
-    const key = `${run.duration_s}`;
+    // Seed the local timer ONLY on a run change, NOT on every status poll -> smooth,
+    // no 2s jitter. The 1s ticker owns the displayed value.
+    const key = `timed:${run.duration_s}`;
     if (!state.countdown || state.countdown.key !== key) {
-      state.countdown = { key, remaining: Math.max(0, run.remaining_s), at: Date.now() };
+      state.countdown = { key, dir: "down", base: Math.max(0, run.remaining_s), at: Date.now() };
     }
     setText("previewWaterLabel", "Outgoing");
     setText("previewAvailableAfter", `${fmt(run.dispensed_l, " L", 3)} / ${fmt(run.target_l, " L", 3)}`);
     availableAfterCard?.classList.remove("is-alert");
   } else if (active && run && run.infinite) {
-    state.countdown = null;
     setText("previewDurationLabel", "Running (manual)");
-    setText("previewDuration", fmtClock(run.elapsed_s));
+    // Local up-counter, seeded once from status elapsed; ticker owns the display.
+    if (!state.countdown || state.countdown.dir !== "up") {
+      state.countdown = { key: "manual", dir: "up", base: Math.max(0, run.elapsed_s), at: Date.now() };
+    }
     setText("previewWaterLabel", "Mode");
     setText("previewAvailableAfter", "manual");
     availableAfterCard?.classList.remove("is-alert");
@@ -881,6 +882,9 @@ scheduleRefresh();
 setInterval(() => {
   const cd = state.countdown;
   if (!cd || fsmState() !== "RUNNING") return;
-  const left = Math.max(0, cd.remaining - (Date.now() - cd.at) / 1000);
-  setText("previewDuration", fmtClock(left));
+  const elapsed = (Date.now() - cd.at) / 1000;
+  const value = cd.dir === "up"
+    ? cd.base + elapsed
+    : Math.max(0, cd.base - elapsed);
+  setText("previewDuration", fmtClock(value));
 }, 1000);
