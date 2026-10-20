@@ -217,14 +217,14 @@ h2 {
 
 .garden-schematic {
   display: grid;
-  grid-template-columns: 218px minmax(0, 1fr);
-  gap: 22px;
+  grid-template-columns: 190px minmax(0, 1fr);
+  gap: 18px;
   min-height: 370px;
 }
 
 .tank-stack {
   display: grid;
-  width: 218px;
+  width: 190px;
   align-content: center;
   justify-items: end;
   gap: 12px;
@@ -603,6 +603,10 @@ h2 {
 
 .head strong {
   font-size: 13px;
+  max-width: 100%;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .head span {
