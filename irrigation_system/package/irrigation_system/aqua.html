@@ -139,10 +139,11 @@
     </section>
 
     <section class="settings-panel">
-      <div class="section-title">
-        <h2>Configuration</h2>
-        <span id="saveState">not saved</span>
-      </div>
+      <details id="configDetails" class="config-details">
+        <summary class="section-title config-summary">
+          <h2>Configuration</h2>
+          <span id="saveState">not saved</span>
+        </summary>
 
       <form id="configForm" class="config-form">
         <fieldset class="config-group">
@@ -211,6 +212,7 @@
           <button id="saveConfigBtn" class="primary" type="submit">Save</button>
         </fieldset>
       </form>
+      </details>
     </section>
 
     <p id="messageLine" class="message-line" role="status">Starting...</p>

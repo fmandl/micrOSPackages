@@ -1037,3 +1037,25 @@ select {
   border-color: var(--red);
   background: var(--red-soft);
 }
+
+/* Collapsible Configuration section */
+.config-summary {
+  cursor: pointer;
+  list-style: none;
+  user-select: none;
+  align-items: center;
+}
+.config-summary::-webkit-details-marker { display: none; }
+.config-summary::after {
+  content: "\25BC";               /* ▼ */
+  margin-left: auto;
+  font-size: 0.8rem;
+  color: var(--muted);
+  transition: transform 0.15s ease;
+}
+.config-details[open] .config-summary::after {
+  transform: rotate(180deg);      /* ▲ when open */
+}
+.config-details > .config-form {
+  margin-top: 12px;
+}
