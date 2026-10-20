@@ -5,6 +5,7 @@ const state = {
   configDirty: false,
   settingsAt: 0,
   blocked: null,   // transient reason when a start/resume was rejected (e.g. low_water)
+  countdown: null, // {remaining, at} client-side 1s countdown, seeded from status
 };
 
 const configFields = {
@@ -579,23 +580,27 @@ function renderLiveRun(data = state.data) {
 
   if (active && run && !run.infinite) {
     setText("previewDurationLabel", "Countdown");
-    setText("previewDuration", fmt(run.remaining_s, " s"));
+    // Seed the client-side countdown from the status; the 1s ticker shows it.
+    state.countdown = { remaining: Math.max(0, run.remaining_s), at: Date.now() };
+    setText("previewDuration", Math.ceil(state.countdown.remaining) + " s");
     setText("previewWaterLabel", "Outgoing");
     setText("previewAvailableAfter", `${fmt(run.dispensed_l, " L", 3)} / ${fmt(run.target_l, " L", 3)}`);
     availableAfterCard?.classList.remove("is-alert");
   } else if (active && run && run.infinite) {
+    state.countdown = null;
     setText("previewDurationLabel", "Running (manual)");
-    setText("previewDuration", fmt(run.elapsed_s, " s"));
+    setText("previewDuration", Math.floor(run.elapsed_s) + " s");
     setText("previewWaterLabel", "Mode");
     setText("previewAvailableAfter", "manual");
     availableAfterCard?.classList.remove("is-alert");
   } else {
+    state.countdown = null;
     const tank = state.data?.tank || {};
     const usable = Number(tank.usable_l);
     const rawAfter = Number.isFinite(usable) ? usable - estimate.totalVolume : null;
     const after = rawAfter === null ? null : Math.max(0, rawAfter);
     setText("previewDurationLabel", "Pump runtime");
-    setText("previewDuration", fmt(estimate.duration, " s"));
+    setText("previewDuration", Math.round(estimate.duration) + " s");
     setText("previewWaterLabel", "Available after");
     setText("previewAvailableAfter", fmt(after, " L", 3));
     availableAfterCard?.classList.toggle("is-alert", rawAfter !== null && rawAfter < 0);
@@ -847,3 +852,13 @@ function scheduleRefresh() {
   }, running ? 2000 : 5000);
 }
 scheduleRefresh();
+
+// Client-side 1s countdown: seeded from status (renderLiveRun sets state.countdown),
+// counts down locally each second; the 2s status poll re-syncs the base. Start and
+// end points match the backend; only the in-between seconds are local.
+setInterval(() => {
+  const cd = state.countdown;
+  if (!cd || fsmState() !== "RUNNING") return;
+  const left = Math.max(0, cd.remaining - (Date.now() - cd.at) / 1000);
+  setText("previewDuration", Math.ceil(left) + " s");
+}, 1000);
