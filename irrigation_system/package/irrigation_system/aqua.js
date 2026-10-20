@@ -262,7 +262,7 @@ function escapeHtml(s) {
     .replace(/"/g, "&quot;").replace(/'/g, "&#39;");
 }
 
-function truncateName(name, max = 12) {
+function truncateName(name, max = 18) {
   const s = String(name == null ? "" : name);
   return s.length > max ? s.slice(0, max - 1) + "\u2026" : s;
 }
