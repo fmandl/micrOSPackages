@@ -1011,3 +1011,23 @@ select {
     width: 112px;
   }
 }
+
+/* State-machine fault banner (top of card) */
+.fault-banner {
+  margin: 0 0 12px;
+  padding: 10px 14px;
+  border-radius: 10px;
+  font-weight: 600;
+  border: 1px solid var(--amber);
+  background: var(--amber-soft);
+  color: var(--ink);
+}
+.fault-banner[hidden] { display: none; }
+.fault-banner.is-low-water {
+  border-color: var(--amber);
+  background: var(--amber-soft);
+}
+.fault-banner.is-error {
+  border-color: var(--red);
+  background: var(--red-soft);
+}

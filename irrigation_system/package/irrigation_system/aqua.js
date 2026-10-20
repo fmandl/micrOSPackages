@@ -436,50 +436,103 @@ function waterRunPayload(estimate = runEstimate()) {
 
 function renderRunCommand(estimate = runEstimate()) {
   const input = byId("runCommandInput");
-  if (input) input.value = aquaCommandText("water", waterRunPayload(estimate));
+  if (input) input.value = aquaCommandText("start", waterRunPayload(estimate));
 }
 
-function wateringRun(data = state.data) {
-  return data?.runtime?.watering || null;
+function activeRun(data = state.data) {
+  // New state-machine run object: {mode, elapsed_s, duration_s, volume_l, per_head_l}
+  return data?.run || null;
 }
 
-function projectedRun(run) {
+function fsmState(data = state.data) {
+  return data?.state || "IDLE";
+}
+
+function projectedRun(data = state.data) {
+  // Client-side countdown interpolation (SPEC §13, B variant).
+  // NOTE: this interpolation could be dropped for a simpler status-only display.
+  const run = activeRun(data);
   if (!run) return null;
-  const duration = Number(run.duration_s) || 0;
-  const target = Number(run.target_l) || 0;
-  const baseRemaining = Number(run.remaining_s);
-  const baseDispensed = Number(run.dispensed_l);
-  const age = run.active && state.statusAt ? Math.max(0, (Date.now() - state.statusAt) / 1000) : 0;
-  const remaining = Math.max(0, (Number.isFinite(baseRemaining) ? baseRemaining : duration) - age);
-  const elapsed = Math.max(0, duration - remaining);
-  const ratio = duration > 0 ? Math.min(1, elapsed / duration) : (remaining <= 0 ? 1 : 0);
-  const dispensed = duration > 0 ? target * ratio : Math.max(0, baseDispensed || 0);
+  const duration = Number(run.duration_s) || 0;         // timed total (manual: null/0 -> infinite)
+  const target = Number(run.volume_l) || 0;
+  const baseElapsed = Number(run.elapsed_s) || 0;
+  const running = fsmState(data) === "RUNNING";
+  const age = running && state.statusAt ? Math.max(0, (Date.now() - state.statusAt) / 1000) : 0;
+  const elapsed = baseElapsed + age;
+  if (duration > 0) {
+    const clampedElapsed = Math.min(duration, elapsed);
+    const remaining = Math.max(0, duration - clampedElapsed);
+    const ratio = duration > 0 ? Math.min(1, clampedElapsed / duration) : 0;
+    return {
+      mode: run.mode,
+      active: running && remaining > 0,
+      remaining_s: remaining,
+      dispensed_l: Math.min(target, target * ratio),
+      target_l: target,
+      infinite: false,
+    };
+  }
+  // manual / infinite
   return {
-    active: Boolean(run.active && remaining > 0),
-    remaining_s: remaining,
-    dispensed_l: Math.min(target, dispensed),
+    mode: run.mode || "manual",
+    active: running,
+    remaining_s: null,
+    dispensed_l: null,
     target_l: target,
+    elapsed_s: elapsed,
+    infinite: true,
   };
+}
+
+const PRIMARY_LABELS = {
+  IDLE: "&#9654; Start",
+  RUNNING: "&#10073;&#10073; Pause",
+  PAUSED: "&#9654; Resume",
+};
+
+function renderPrimaryButton(fstate) {
+  const btn = byId("primaryBtn");
+  if (!btn) return;
+  btn.innerHTML = PRIMARY_LABELS[fstate] || PRIMARY_LABELS.IDLE;
+  btn.dataset.action = fstate === "RUNNING" ? "pause" : (fstate === "PAUSED" ? "resume" : "start");
+  btn.disabled = Boolean(state.busy);
+  // Start needs a volume; pause/resume always allowed.
+  if (fstate === "IDLE") {
+    const est = runEstimate();
+    btn.disabled = Boolean(state.busy) || !(est.totalVolume > 0);
+  }
 }
 
 function renderLiveRun(data = state.data) {
   const flow = data?.flow || {};
-  const run = projectedRun(wateringRun(data));
-  const active = Boolean(run?.active || (data?.pump_on && !run));
+  const fstate = fsmState(data);
+  const run = projectedRun(data);
+  const active = fstate === "RUNNING";
   const availableAfterCard = byId("availableAfterCard");
   const estimate = runEstimate();
 
-  setText("pumpState", active ? "Watering" : "Idle");
-  setText("pumpFlow", active && run ? `${fmt(run.dispensed_l, " L", 2)} / ${fmt(run.target_l, " L", 2)}` : fmt(flow.pump_l_hour, " L/h"));
+  const stateLabel = { IDLE: "Idle", RUNNING: "Watering", PAUSED: "Paused" }[fstate] || "Idle";
+  setText("pumpState", stateLabel);
+  setText("pumpFlow", active && run && !run.infinite
+    ? `${fmt(run.dispensed_l, " L", 2)} / ${fmt(run.target_l, " L", 2)}`
+    : fmt(flow.pump_l_hour, " L/h"));
   document.querySelector(".pump-node")?.classList.toggle("is-watering", active);
-  const waterBtn = byId("waterBtn");
-  if (waterBtn) waterBtn.disabled = Boolean(active || state.busy);
 
-  if (active && run) {
+  renderPrimaryButton(fstate);
+  const stopBtn = byId("stopBtn");
+  if (stopBtn) stopBtn.disabled = Boolean(state.busy) || fstate === "IDLE";
+
+  if (active && run && !run.infinite) {
     setText("previewDurationLabel", "Countdown");
     setText("previewDuration", fmt(run.remaining_s, " s"));
     setText("previewWaterLabel", "Outgoing");
     setText("previewAvailableAfter", `${fmt(run.dispensed_l, " L", 3)} / ${fmt(run.target_l, " L", 3)}`);
+    availableAfterCard?.classList.remove("is-alert");
+  } else if (active && run && run.infinite) {
+    setText("previewDurationLabel", "Running (manual)");
+    setText("previewDuration", fmt(run.elapsed_s, " s"));
+    setText("previewWaterLabel", "Mode");
+    setText("previewAvailableAfter", "manual");
     availableAfterCard?.classList.remove("is-alert");
   } else {
     const tank = state.data?.tank || {};
@@ -493,6 +546,25 @@ function renderLiveRun(data = state.data) {
     availableAfterCard?.classList.toggle("is-alert", rawAfter !== null && rawAfter < 0);
   }
   renderRunCommand(estimate);
+}
+
+function renderFault(data = state.data) {
+  const banner = byId("faultBanner");
+  if (!banner) return;
+  const fault = data?.fault;
+  if (!fault) {
+    banner.hidden = true;
+    banner.className = "fault-banner";
+    return;
+  }
+  banner.hidden = false;
+  if (fault.reason === "low_water") {
+    banner.className = "fault-banner is-low-water";
+    banner.textContent = "\u26A0 Low water \u2014 refill tank, then Resume";
+  } else {
+    banner.className = "fault-banner is-error";
+    banner.textContent = "\u26A0 " + (fault.reason || "Fault") + " \u2014 check device";
+  }
 }
 
 function renderStatus(data) {
@@ -547,6 +619,7 @@ function renderStatus(data) {
   updatePumpPinLock(data);
   updateManualDistanceVisibility(config);
   renderLiveRun(data);
+  renderFault(data);
 }
 
 async function refresh() {
@@ -596,54 +669,56 @@ async function saveConfig(event) {
   }
 }
 
-async function startWatering() {
-  const estimate = runEstimate();
-  const run = waterRunPayload(estimate);
-  if (!run.volume_l) {
-    setMessage("Enter a water amount", "error");
-    return;
-  }
-
-  byId("waterBtn").disabled = true;
+async function primaryAction() {
+  const btn = byId("primaryBtn");
+  const action = btn?.dataset.action || "start";
   state.busy = true;
+  if (btn) btn.disabled = true;
   try {
-    const data = await aquaCommand("water", run);
-    if (data.state === false) {
-      setMessage(data.error || "Watering blocked", "error");
-    } else {
-      setMessage("Watering started");
+    if (action === "start") {
+      const run = waterRunPayload(runEstimate());
+      if (!run.volume_l) {
+        setMessage("Enter a water amount", "error");
+        return;
+      }
+      const data = await aquaCommand("start", run);
+      setMessage(data?.state === false ? (data.error || "Start blocked") : "Watering started",
+        data?.state === false ? "error" : "neutral");
+    } else if (action === "pause") {
+      await aquaCommand("pause");
+      setMessage("Paused");
+    } else if (action === "resume") {
+      const data = await aquaCommand("resume");
+      setMessage(data?.state === false ? (data.error || "Resume blocked") : "Resumed",
+        data?.state === false ? "error" : "neutral");
     }
-    state.busy = false;
-    await refresh();
   } catch (err) {
-    setMessage("Watering command failed", "error");
+    setMessage((action.charAt(0).toUpperCase() + action.slice(1)) + " command failed", "error");
   } finally {
     state.busy = false;
-    byId("waterBtn").disabled = Boolean(projectedRun(wateringRun())?.active);
+    await refresh();
   }
 }
 
-async function stopWatering() {
+async function stopAction() {
   byId("stopBtn").disabled = true;
   state.busy = true;
   try {
     await aquaCommand("stop");
-    setMessage("Pump stopped");
-    state.busy = false;
-    await refresh();
+    setMessage("Stopped");
   } catch (err) {
     setMessage("Stop failed", "error");
   } finally {
     state.busy = false;
-    byId("stopBtn").disabled = false;
+    await refresh();
   }
 }
 
 function wire() {
   byId("refreshBtn")?.addEventListener("click", refresh);
   byId("configForm")?.addEventListener("submit", saveConfig);
-  byId("waterBtn")?.addEventListener("click", startWatering);
-  byId("stopBtn")?.addEventListener("click", stopWatering);
+  byId("primaryBtn")?.addEventListener("click", primaryAction);
+  byId("stopBtn")?.addEventListener("click", stopAction);
   byId("runCommandInput")?.addEventListener("focus", (event) => event.target.select());
   byId("runCommandInput")?.addEventListener("click", (event) => event.target.select());
   byId("runVolume")?.addEventListener("input", () => {

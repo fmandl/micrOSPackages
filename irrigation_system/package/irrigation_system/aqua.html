@@ -23,6 +23,8 @@
       </div>
     </header>
 
+    <div id="faultBanner" class="fault-banner" role="alert" hidden></div>
+
     <section class="dashboard-grid">
       <section class="schematic-panel" aria-label="Garden schematic">
         <div class="schematic-head">
@@ -102,12 +104,12 @@
             </div>
           </div>
           <div class="button-row">
-            <button id="waterBtn" class="primary" type="button" title="Start watering">&#9654; Water</button>
+            <button id="primaryBtn" class="primary" type="button" title="Start watering">&#9654; Start</button>
             <button id="stopBtn" class="danger" type="button" title="Stop pump">&#9632; Stop</button>
           </div>
           <div class="run-command">
             <span>Scheduler command</span>
-            <input id="runCommandInput" type="text" value="aqua water volume_l=1" readonly aria-label="Scheduler command" />
+            <input id="runCommandInput" type="text" value="aqua start volume_l=1" readonly aria-label="Scheduler command" />
           </div>
         </section>
 
