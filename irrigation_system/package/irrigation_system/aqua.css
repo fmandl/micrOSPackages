@@ -908,8 +908,8 @@ select {
 }
 
 .config-form {
-  grid-template-columns: minmax(200px, 0.8fr) minmax(260px, 1.2fr) repeat(2, minmax(160px, 0.6fr));
-  align-items: stretch;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  align-items: start;
 }
 
 .config-group {
@@ -1084,13 +1084,10 @@ select {
   border-color: var(--green); color: var(--green); background: transparent;
 }
 
-/* Heads fieldset spans the full Configuration width so name fields fit */
-.config-form .heads-group {
-  grid-column: 1 / -1;
-}
+/* Heads fieldset: one cell in the 2-col config grid; head rows stacked */
 .heads-group .heads-editor {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
-  gap: 6px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
 }
 .heads-group .head-name { flex: 1 1 auto; min-width: 0; }
