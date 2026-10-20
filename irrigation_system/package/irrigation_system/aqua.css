@@ -1065,3 +1065,17 @@ select {
   color: var(--muted);
   font-size: 0.85rem;
 }
+
+/* Heads editor (per-head name + flow) */
+.heads-editor { display: flex; flex-direction: column; gap: 6px; }
+.head-row { display: flex; align-items: center; gap: 6px; }
+.head-row .head-name { flex: 1 1 auto; min-width: 0; }
+.head-row .head-flow { flex: 0 0 72px; width: 72px; }
+.head-row .head-del {
+  flex: 0 0 32px; width: 32px; height: 32px; padding: 0;
+  cursor: pointer; border-color: var(--red); color: var(--red); background: transparent;
+}
+.add-head-btn {
+  margin-top: 8px; cursor: pointer; width: 100%;
+  border-color: var(--green); color: var(--green); background: transparent;
+}

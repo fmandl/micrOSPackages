@@ -417,6 +417,50 @@ function fillInputs(config) {
   });
 }
 
+// ---- Heads editor (per-head name + flow) ----
+
+function headRowTemplate(head = {}) {
+  const row = document.createElement("div");
+  row.className = "head-row";
+  if (head.id != null) row.dataset.headId = String(head.id);
+  const name = head.name == null ? "" : head.name;
+  const flow = head.flow_l_hour == null ? "" : head.flow_l_hour;
+  row.innerHTML = `
+    <input class="head-name" type="text" placeholder="Name" maxlength="24" />
+    <input class="head-flow" type="number" min="0" step="0.1" inputmode="decimal" placeholder="L/h" />
+    <button type="button" class="head-del" title="Remove head">&#10005;</button>
+  `;
+  row.querySelector(".head-name").value = name;
+  row.querySelector(".head-flow").value = flow;
+  row.querySelector(".head-name").addEventListener("input", markConfigDirty);
+  row.querySelector(".head-flow").addEventListener("input", markConfigDirty);
+  row.querySelector(".head-del").addEventListener("click", () => {
+    row.remove();
+    markConfigDirty();
+  });
+  return row;
+}
+
+function renderHeadsEditor(heads) {
+  if (state.configDirty) return;   // don't clobber in-progress edits
+  const editor = byId("headsEditor");
+  if (!editor) return;
+  editor.innerHTML = "";
+  (Array.isArray(heads) ? heads : []).forEach((h) => editor.appendChild(headRowTemplate(h)));
+}
+
+function headsFromEditor() {
+  const editor = byId("headsEditor");
+  if (!editor) return [];
+  return Array.from(editor.querySelectorAll(".head-row")).map((row) => {
+    const name = row.querySelector(".head-name").value.trim();
+    const flow = Number(row.querySelector(".head-flow").value);
+    const head = { name: name || "Head", flow_l_hour: Number.isFinite(flow) ? Math.max(0, flow) : 0 };
+    if (row.dataset.headId) head.id = Number(row.dataset.headId);   // keep id for existing heads
+    return head;
+  });
+}
+
 function runEstimate() {
   const data = state.data || {};
   const config = data.config || {};
@@ -649,6 +693,7 @@ function renderStatus(data) {
   renderLevelSensor(data);
   renderBadges(data);
   fillInputs(config);
+  renderHeadsEditor(config.heads);
   updatePumpPinLock(data);
   updateManualDistanceVisibility(config);
   renderLiveRun(data);
@@ -678,6 +723,7 @@ function configPayload() {
   if (!isManualLevelModule(payload.level_module)) {
     delete payload.water_distance_cm;
   }
+  payload.heads = headsFromEditor();
   return payload;
 }
 
@@ -761,6 +807,11 @@ async function stopAction() {
 function wire() {
   byId("refreshBtn")?.addEventListener("click", refresh);
   byId("configForm")?.addEventListener("submit", saveConfig);
+  byId("addHeadBtn")?.addEventListener("click", () => {
+    const editor = byId("headsEditor");
+    if (editor) editor.appendChild(headRowTemplate({}));
+    markConfigDirty();
+  });
   byId("primaryBtn")?.addEventListener("click", primaryAction);
   byId("stopBtn")?.addEventListener("click", stopAction);
   byId("runCommandInput")?.addEventListener("focus", (event) => event.target.select());
