@@ -129,6 +129,16 @@ function fmt(value, suffix = "", digits = 1) {
   return trimDecimalZeros(fixed) + suffix;
 }
 
+// Seconds -> clock string: 45 -> "0:45", 125 -> "2:05", 3725 -> "1:02:05".
+function fmtClock(seconds) {
+  const total = Math.max(0, Math.round(Number(seconds) || 0));
+  const h = Math.floor(total / 3600);
+  const m = Math.floor((total % 3600) / 60);
+  const s = total % 60;
+  const pad = (x) => String(x).padStart(2, "0");
+  return h > 0 ? `${h}:${pad(m)}:${pad(s)}` : `${m}:${pad(s)}`;
+}
+
 function clampCount(value, minimum = 0) {
   const parsed = Number(value);
   if (!Number.isFinite(parsed)) return minimum;
@@ -593,9 +603,17 @@ function renderLiveRun(data = state.data) {
   } else if (active && run && run.infinite) {
     state.countdown = null;
     setText("previewDurationLabel", "Running (manual)");
-    setText("previewDuration", Math.floor(run.elapsed_s) + " s");
+    setText("previewDuration", fmtClock(run.elapsed_s));
     setText("previewWaterLabel", "Mode");
     setText("previewAvailableAfter", "manual");
+    availableAfterCard?.classList.remove("is-alert");
+  } else if (fstate === "PAUSED" && run && !run.infinite) {
+    // Paused timed run: show the SAVED remaining time (not the full runtime).
+    state.countdown = null;
+    setText("previewDurationLabel", "Paused \u2014 remaining");
+    setText("previewDuration", fmtClock(run.remaining_s));
+    setText("previewWaterLabel", "Outgoing");
+    setText("previewAvailableAfter", `${fmt(run.dispensed_l, " L", 3)} / ${fmt(run.target_l, " L", 3)}`);
     availableAfterCard?.classList.remove("is-alert");
   } else {
     state.countdown = null;
@@ -604,7 +622,7 @@ function renderLiveRun(data = state.data) {
     const rawAfter = Number.isFinite(usable) ? usable - estimate.totalVolume : null;
     const after = rawAfter === null ? null : Math.max(0, rawAfter);
     setText("previewDurationLabel", "Pump runtime");
-    setText("previewDuration", Math.round(estimate.duration) + " s");
+    setText("previewDuration", fmtClock(estimate.duration));
     setText("previewWaterLabel", "Available after");
     setText("previewAvailableAfter", fmt(after, " L", 3));
     availableAfterCard?.classList.toggle("is-alert", rawAfter !== null && rawAfter < 0);
@@ -857,12 +875,12 @@ function scheduleRefresh() {
 }
 scheduleRefresh();
 
-// Client-side 1s countdown: seeded from status (renderLiveRun sets state.countdown),
-// counts down locally each second; the 2s status poll re-syncs the base. Start and
-// end points match the backend; only the in-between seconds are local.
+// Client-side 1s countdown: seeded on run change (renderLiveRun), counts down
+// locally each second; status poll does NOT re-sync it (no jitter). Re-seeds
+// only on a new run / resume. Displayed as m:ss.
 setInterval(() => {
   const cd = state.countdown;
   if (!cd || fsmState() !== "RUNNING") return;
   const left = Math.max(0, cd.remaining - (Date.now() - cd.at) / 1000);
-  setText("previewDuration", Math.ceil(left) + " s");
+  setText("previewDuration", fmtClock(left));
 }, 1000);
