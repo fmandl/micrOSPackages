@@ -159,6 +159,11 @@ class AquaStateMachine:
 
     def snapshot(self):
         """Current machine state for status reporting."""
+        # While RUNNING, refresh elapsed_s from the controller's live timer so
+        # status (and the GUI countdown) reflects real progress, not the value
+        # frozen at start. (pause/checkpoint/low_water already sync it.)
+        if self.state == RUNNING and isinstance(self.run, dict):
+            self._sync_elapsed()
         return {
             "state": self.state,
             "run": self.run,
