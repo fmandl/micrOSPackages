@@ -496,6 +496,9 @@ function renderPrimaryButton(fstate) {
   if (!btn) return;
   btn.innerHTML = PRIMARY_LABELS[fstate] || PRIMARY_LABELS.IDLE;
   btn.dataset.action = fstate === "RUNNING" ? "pause" : (fstate === "PAUSED" ? "resume" : "start");
+  // Yellow in RUNNING (Pause), green otherwise (Start/Resume).
+  btn.classList.toggle("pause", fstate === "RUNNING");
+  btn.classList.toggle("primary", fstate !== "RUNNING");
   btn.disabled = Boolean(state.busy);
   // Start needs a volume; pause/resume always allowed.
   if (fstate === "IDLE") {

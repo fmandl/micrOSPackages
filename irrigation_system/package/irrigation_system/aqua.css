@@ -80,6 +80,12 @@ button:disabled {
   background: #b84343;
 }
 
+.pause {
+  border-color: var(--amber);
+  color: #1a1206;
+  background: var(--amber);
+}
+
 .icon-button {
   width: 42px;
   padding: 0;
