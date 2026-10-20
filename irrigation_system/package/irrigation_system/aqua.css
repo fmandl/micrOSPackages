@@ -217,14 +217,14 @@ h2 {
 
 .garden-schematic {
   display: grid;
-  grid-template-columns: 110px minmax(0, 1fr);
-  gap: 18px;
+  grid-template-columns: 218px minmax(0, 1fr);
+  gap: 22px;
   min-height: 370px;
 }
 
 .tank-stack {
   display: grid;
-  width: 110px;
+  width: 218px;
   align-content: center;
   justify-items: end;
   gap: 12px;
@@ -368,8 +368,8 @@ h2 {
 .flow-chart {
   position: relative;
   display: grid;
-  grid-template-columns: minmax(0, 1fr);
-  gap: 10px;
+  grid-template-columns: minmax(124px, 142px) minmax(0, 1fr);
+  gap: 18px;
   align-items: center;
   min-width: 0;
 }
@@ -523,7 +523,7 @@ h2 {
 
 .head-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(96px, 1fr));
   gap: 12px;
   align-content: start;
   min-height: 220px;
@@ -1083,3 +1083,14 @@ select {
   margin-top: 8px; cursor: pointer; width: 100%;
   border-color: var(--green); color: var(--green); background: transparent;
 }
+
+/* Heads fieldset spans the full Configuration width so name fields fit */
+.config-form .heads-group {
+  grid-column: 1 / -1;
+}
+.heads-group .heads-editor {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 6px 12px;
+}
+.heads-group .head-name { flex: 1 1 auto; min-width: 0; }
