@@ -256,6 +256,9 @@ class PumpController:
     def plan(self, volume_l=None, per_head_l=None):
         return monitoring.plan(volume_l=volume_l, per_head_l=per_head_l)
 
+    def pump_overload(self):
+        return monitoring.pump_overload()
+
     def pump_on(self, mode, remaining_s, max_runtime_s, elapsed_s):
         """Turn pump ON and (re)start the watcher task for this run segment."""
         manage_task(SM_TASK_TAG, "kill")

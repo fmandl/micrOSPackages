@@ -22,6 +22,7 @@ CONFIG = {
     "min_level_cm": 2.0,
     "pump_l_hour": 300.0,
     "head_count": 4,
+    "head_flow_l_hour": 4.0,
     "soil_sensor_count": 4,
     "pump_pin": 3,
     "level_module": "manual",
@@ -138,6 +139,7 @@ def update_config(data):
         "min_level_cm": ("float", 0, None),
         "pump_l_hour": ("float", 0.1, None),
         "head_count": ("int", 1, 100),
+        "head_flow_l_hour": ("float", 0.01, None),
         "soil_sensor_count": ("int", 0, 100),
         "pump_pin": ("int", 0, None),
         "checkpoint_interval_s": ("float", 0, None),
@@ -271,15 +273,18 @@ def configure_level(was_manual, water_distance_cm=None):
 def flow():
     pump_l_hour = as_float(CONFIG.get("pump_l_hour"), 0, minimum=0)
     heads = as_int(CONFIG.get("head_count"), 1, minimum=1, maximum=100)
-    head_l_hour = pump_l_hour / heads if heads else 0
+    head_l_hour = as_float(CONFIG.get("head_flow_l_hour"), 0, minimum=0)
+    total_flow = heads_total_flow()   # heads' combined flow drives the water use
     tank_data = tank()
     minutes_to_reserve = None
-    if pump_l_hour > 0 and tank_data.get("usable_l") is not None:
-        minutes_to_reserve = round(tank_data["usable_l"] * 60.0 / pump_l_hour, 1)
+    if total_flow > 0 and tank_data.get("usable_l") is not None:
+        minutes_to_reserve = round(tank_data["usable_l"] * 60.0 / total_flow, 1)
     return {
         "pump_l_hour": round(pump_l_hour, 1),
         "head_count": heads,
         "head_l_hour": round(head_l_hour, 1),
+        "heads_total_l_hour": total_flow,
+        "pump_overload": pump_overload(),
         "minutes_to_reserve": minutes_to_reserve,
     }
 
@@ -309,16 +314,40 @@ def soil():
     }
 
 
+def heads_total_flow():
+    """Combined nominal flow of all irrigation heads (L/h).
+
+    v1 (C model): uniform per-head flow x head_count. Mixed per-head flows
+    (a list) are a future extension.
+    """
+    head_flow = as_float(CONFIG.get("head_flow_l_hour"), 0, minimum=0)
+    heads = as_int(CONFIG.get("head_count"), 1, minimum=1, maximum=100)
+    return round(head_flow * heads, 3)
+
+
+def pump_overload():
+    """True if the heads' combined flow exceeds the pump's max output.
+
+    In that case the pump cannot supply all heads at full flow; starting is
+    blocked (SPEC: planning-time overload -> reject start, GUI warning).
+    """
+    pump = as_float(CONFIG.get("pump_l_hour"), 0, minimum=0)
+    total = heads_total_flow()
+    return pump > 0 and total > pump
+
+
 def plan(volume_l=None, per_head_l=None):
-    pump_l_hour = as_float(CONFIG.get("pump_l_hour"), 0, minimum=0)
+    # Watering duration is driven by the HEADS' combined flow, not the pump.
+    # The pump is only an upper bound (see pump_overload()).
+    total_flow = heads_total_flow()
     heads = as_int(CONFIG.get("head_count"), 1, minimum=1, maximum=100)
     volume_l = as_float(volume_l, None, minimum=0)
     per_head_l = as_float(per_head_l, None, minimum=0)
     if volume_l is not None and volume_l > 0:
-        duration_s = 0 if pump_l_hour <= 0 else volume_l * 3600.0 / pump_l_hour
+        duration_s = 0 if total_flow <= 0 else volume_l * 3600.0 / total_flow
     elif per_head_l is not None and per_head_l > 0:
         volume_l = per_head_l * heads
-        duration_s = 0 if pump_l_hour <= 0 else volume_l * 3600.0 / pump_l_hour
+        duration_s = 0 if total_flow <= 0 else volume_l * 3600.0 / total_flow
     else:
         duration_s = 0
         volume_l = 0
@@ -327,6 +356,8 @@ def plan(volume_l=None, per_head_l=None):
         "volume_l": round(volume_l, 3),
         "per_head_l": round(volume_l / heads, 3),
         "head_count": heads,
+        "heads_total_l_hour": total_flow,
+        "pump_overload": pump_overload(),
     }
 
 

@@ -186,6 +186,10 @@ class AquaStateMachine:
         mode = "timed" if duration_s > 0 else "manual"
         required_l = plan.get("volume_l") if mode == "timed" else None
 
+        # Planning-time pump overload: heads' combined flow exceeds pump output.
+        if plan.get("pump_overload"):
+            return self._result(False, error="pump_overload", plan=plan)
+
         level = self.c.check_level(required_l=required_l)
         if not level.get("ok"):
             return self._result(False, error="low_water", ready=level)
@@ -206,6 +210,8 @@ class AquaStateMachine:
     def _on_resume(self, **_):
         if not isinstance(self.run, dict):
             return self._result(False, error="no_saved_run")
+        if getattr(self.c, "pump_overload", None) and self.c.pump_overload():
+            return self._result(False, error="pump_overload")
         required_l = self.run.get("volume_l") if self.run.get("mode") == "timed" else None
         level = self.c.check_level(required_l=required_l)
         if not level.get("ok"):

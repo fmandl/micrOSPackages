@@ -409,6 +409,8 @@ function runEstimate() {
   const config = data.config || {};
   const heads = clampCount(config.head_count || 1, 1);
   const pump = Number(config.pump_l_hour || 0);
+  const headFlow = Number(config.head_flow_l_hour || 0);
+  const totalFlow = headFlow * heads;   // heads' combined flow drives the water use
   let totalVolume = numberValue("runVolume") || 0;
   let perHead = numberValue("runPerHead") || 0;
 
@@ -423,9 +425,12 @@ function runEstimate() {
   return {
     heads,
     pump,
+    headFlow,
+    totalFlow,
     totalVolume,
     perHead,
-    duration: pump > 0 ? totalVolume * 3600 / pump : 0,
+    duration: totalFlow > 0 ? totalVolume * 3600 / totalFlow : 0,
+    overload: pump > 0 && totalFlow > pump,
   };
 }
 
@@ -503,7 +508,8 @@ function renderPrimaryButton(fstate) {
   // Start needs a volume; pause/resume always allowed.
   if (fstate === "IDLE") {
     const est = runEstimate();
-    btn.disabled = Boolean(state.busy) || !(est.totalVolume > 0);
+    // Start needs a volume and must not overload the pump.
+    btn.disabled = Boolean(state.busy) || !(est.totalVolume > 0) || est.overload;
   }
 }
 
@@ -573,6 +579,19 @@ function renderFault(data = state.data) {
     banner.hidden = false;
     banner.className = "fault-banner is-low-water";
     banner.textContent = "\u26A0 Not enough water \u2014 refill tank or lower the amount";
+    return;
+  }
+  if (state.blocked === "pump_overload") {
+    banner.hidden = false;
+    banner.className = "fault-banner is-error";
+    banner.textContent = "\u26A0 Pump overload \u2014 heads exceed pump capacity";
+    return;
+  }
+  // Planning-time overload (IDLE): heads' combined flow exceeds pump capacity.
+  if (fsmState(data) === "IDLE" && runEstimate().overload) {
+    banner.hidden = false;
+    banner.className = "fault-banner is-error";
+    banner.textContent = "\u26A0 Pump overload \u2014 reduce heads or head flow";
     return;
   }
   banner.hidden = true;
@@ -704,9 +723,12 @@ async function primaryAction() {
     // (e.g. low_water lockout). It does NOT throw in that case.
     if (result && result.state === false) {
       const reason = result.error || "blocked";
-      state.blocked = (reason === "low_water" || reason === "not_enough_usable_water") ? reason : null;
-      setMessage(reason === "low_water" || reason === "not_enough_usable_water"
-        ? "Not enough water" : (action + " rejected: " + reason), "error");
+      const known = ["low_water", "not_enough_usable_water", "pump_overload"];
+      state.blocked = known.includes(reason) ? reason : null;
+      const msg = reason === "pump_overload" ? "Pump overload"
+        : (reason === "low_water" || reason === "not_enough_usable_water") ? "Not enough water"
+        : (action + " rejected: " + reason);
+      setMessage(msg, "error");
     } else {
       state.blocked = null;
       setMessage({ start: "Watering started", pause: "Paused", resume: "Resumed" }[action] || "OK");
