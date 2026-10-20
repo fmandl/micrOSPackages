@@ -83,20 +83,20 @@
       <aside class="control-panel">
         <section class="run-panel">
           <h2>Run</h2>
-          <div class="input-grid two">
+          <div class="input-grid">
             <label>
               <span>Total L</span>
               <input id="runVolume" type="number" min="0" step="0.1" value="1" inputmode="decimal" />
-            </label>
-            <label>
-              <span>L / head</span>
-              <input id="runPerHead" type="number" min="0" step="0.01" value="0.25" inputmode="decimal" />
             </label>
           </div>
           <div class="run-preview">
             <div>
               <span id="previewDurationLabel">Pump runtime</span>
               <strong id="previewDuration">-- s</strong>
+            </div>
+            <div>
+              <span>Total flow</span>
+              <strong id="previewTotalFlow">-- L/h</strong>
             </div>
             <div id="availableAfterCard">
               <span id="previewWaterLabel">Available after</span>

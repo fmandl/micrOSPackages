@@ -2,7 +2,6 @@ const state = {
   data: null,
   statusAt: 0,
   busy: false,
-  runSource: "total",
   configDirty: false,
   settingsAt: 0,
   blocked: null,   // transient reason when a start/resume was rejected (e.g. low_water)
@@ -411,24 +410,13 @@ function runEstimate() {
   const pump = Number(config.pump_l_hour || 0);
   const headFlow = Number(config.head_flow_l_hour || 0);
   const totalFlow = headFlow * heads;   // heads' combined flow drives the water use
-  let totalVolume = numberValue("runVolume") || 0;
-  let perHead = numberValue("runPerHead") || 0;
-
-  if (state.runSource === "perHead") {
-    totalVolume = perHead * heads;
-    setNumberInput("runVolume", totalVolume);
-  } else {
-    perHead = heads > 0 ? totalVolume / heads : 0;
-    setNumberInput("runPerHead", perHead);
-  }
-
+  const totalVolume = numberValue("runVolume") || 0;
   return {
     heads,
     pump,
     headFlow,
     totalFlow,
     totalVolume,
-    perHead,
     duration: totalFlow > 0 ? totalVolume * 3600 / totalFlow : 0,
     overload: pump > 0 && totalFlow > pump,
   };
@@ -455,20 +443,19 @@ function fsmState(data = state.data) {
 }
 
 function projectedRun(data = state.data) {
-  // Client-side countdown interpolation (SPEC §13, B variant).
-  // NOTE: this interpolation could be dropped for a simpler status-only display.
+  // Status-only display (SPEC §13 "A" simplification): show the backend's
+  // elapsed_s/duration_s directly, no client-side interpolation. A faster poll
+  // while RUNNING keeps it reasonably live without jumping/resetting.
   const run = activeRun(data);
   if (!run) return null;
   const duration = Number(run.duration_s) || 0;         // timed total (manual: null/0 -> infinite)
   const target = Number(run.volume_l) || 0;
-  const baseElapsed = Number(run.elapsed_s) || 0;
+  const elapsed = Math.max(0, Number(run.elapsed_s) || 0);
   const running = fsmState(data) === "RUNNING";
-  const age = running && state.statusAt ? Math.max(0, (Date.now() - state.statusAt) / 1000) : 0;
-  const elapsed = baseElapsed + age;
   if (duration > 0) {
     const clampedElapsed = Math.min(duration, elapsed);
     const remaining = Math.max(0, duration - clampedElapsed);
-    const ratio = duration > 0 ? Math.min(1, clampedElapsed / duration) : 0;
+    const ratio = Math.min(1, clampedElapsed / duration);
     return {
       mode: run.mode,
       active: running && remaining > 0,
@@ -555,6 +542,7 @@ function renderLiveRun(data = state.data) {
     setText("previewAvailableAfter", fmt(after, " L", 3));
     availableAfterCard?.classList.toggle("is-alert", rawAfter !== null && rawAfter < 0);
   }
+  setText("previewTotalFlow", fmt(estimate.totalFlow, " L/h"));
   renderRunCommand(estimate);
 }
 
@@ -764,12 +752,8 @@ function wire() {
   byId("runCommandInput")?.addEventListener("focus", (event) => event.target.select());
   byId("runCommandInput")?.addEventListener("click", (event) => event.target.select());
   byId("runVolume")?.addEventListener("input", () => {
-    state.runSource = "total";
     renderLiveRun();
-  });
-  byId("runPerHead")?.addEventListener("input", () => {
-    state.runSource = "perHead";
-    renderLiveRun();
+    renderFault();
   });
   Object.keys(configFields).forEach((id) => {
     byId(id)?.addEventListener("input", () => {
@@ -786,5 +770,15 @@ function wire() {
 wire();
 updateManualDistanceVisibility();
 refresh();
-setInterval(refresh, 5000);
-setInterval(renderLiveRun, 1000);
+
+// Adaptive status poll: faster while RUNNING (live-ish countdown without
+// client-side interpolation), slower otherwise. No separate 1s interpolation
+// tick (SPEC §13 "A": status-only display).
+function scheduleRefresh() {
+  const running = fsmState() === "RUNNING";
+  setTimeout(async () => {
+    await refresh();
+    scheduleRefresh();
+  }, running ? 2000 : 5000);
+}
+scheduleRefresh();
