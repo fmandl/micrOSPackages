@@ -580,9 +580,13 @@ function renderLiveRun(data = state.data) {
 
   if (active && run && !run.infinite) {
     setText("previewDurationLabel", "Countdown");
-    // Seed the client-side countdown from the status; the 1s ticker shows it.
-    state.countdown = { remaining: Math.max(0, run.remaining_s), at: Date.now() };
-    setText("previewDuration", Math.ceil(state.countdown.remaining) + " s");
+    // Seed the local countdown ONLY on a run change (new start/resume or different
+    // duration), NOT on every status poll -> the number counts down smoothly and
+    // is not yanked back every 2s. The 1s ticker owns the displayed value.
+    const key = `${run.duration_s}`;
+    if (!state.countdown || state.countdown.key !== key) {
+      state.countdown = { key, remaining: Math.max(0, run.remaining_s), at: Date.now() };
+    }
     setText("previewWaterLabel", "Outgoing");
     setText("previewAvailableAfter", `${fmt(run.dispensed_l, " L", 3)} / ${fmt(run.target_l, " L", 3)}`);
     availableAfterCard?.classList.remove("is-alert");
