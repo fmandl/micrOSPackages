@@ -1059,3 +1059,9 @@ select {
 .config-details > .config-form {
   margin-top: 12px;
 }
+
+.config-hint {
+  margin: 4px 0 0;
+  color: var(--muted);
+  font-size: 0.85rem;
+}

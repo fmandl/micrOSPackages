@@ -21,8 +21,7 @@ CONFIG = {
     "water_distance_cm": 7.0,
     "min_level_cm": 2.0,
     "pump_l_hour": 300.0,
-    "head_count": 4,
-    "head_flow_l_hour": 4.0,
+    "heads": [{"id": 1, "name": "Head 1", "flow_l_hour": 4.0}],
     "soil_sensor_count": 4,
     "pump_pin": 3,
     "level_module": "manual",
@@ -60,12 +59,31 @@ def load_config():
         with open(_config_path(), "r") as f:
             data = json.loads(f.read())
         if isinstance(data, dict):
+            # Migration: old config had head_count + head_flow_l_hour (uniform C model)
+            # and no heads list -> build a heads list so the setting is not lost.
+            if "heads" not in data and ("head_count" in data or "head_flow_l_hour" in data):
+                data["heads"] = _migrate_heads(data.get("head_count"), data.get("head_flow_l_hour"))
             for key in CONFIG:            # only known keys, keep defaults for the rest
                 if key in data and data[key] is not None:
                     CONFIG[key] = data[key]
+            normalize_heads()
         return True
     except Exception:
         return False
+
+
+def _migrate_heads(head_count, head_flow_l_hour):
+    """Build a heads list from the legacy uniform (count x flow) config."""
+    try:
+        n = int(head_count) if head_count else 1
+    except Exception:
+        n = 1
+    try:
+        flow = float(head_flow_l_hour) if head_flow_l_hour else 4.0
+    except Exception:
+        flow = 4.0
+    n = max(1, min(100, n))
+    return [{"id": i + 1, "name": "Head {}".format(i + 1), "flow_l_hour": flow} for i in range(n)]
 
 
 RUNTIME = {
@@ -138,8 +156,6 @@ def update_config(data):
         "tank_height_cm": ("float", 0.1, None),
         "min_level_cm": ("float", 0, None),
         "pump_l_hour": ("float", 0.1, None),
-        "head_count": ("int", 1, 100),
-        "head_flow_l_hour": ("float", 0.01, None),
         "soil_sensor_count": ("int", 0, 100),
         "pump_pin": ("int", 0, None),
         "checkpoint_interval_s": ("float", 0, None),
@@ -159,6 +175,10 @@ def update_config(data):
             CONFIG[key] = as_float(data.get(key), CONFIG.get(key), minimum, maximum)
     if is_manual_level_module() and "water_distance_cm" in data and data.get("water_distance_cm") is not None:
         CONFIG["water_distance_cm"] = as_float(data.get("water_distance_cm"), CONFIG.get("water_distance_cm"), 0, None)
+    # Heads list (A model): replace wholesale if provided, then normalize.
+    if "heads" in data and isinstance(data.get("heads"), list):
+        CONFIG["heads"] = data["heads"]
+    normalize_heads()
     save_config()   # persist every configure/GUI change to /data
 
 
@@ -272,8 +292,7 @@ def configure_level(was_manual, water_distance_cm=None):
 
 def flow():
     pump_l_hour = as_float(CONFIG.get("pump_l_hour"), 0, minimum=0)
-    heads = as_int(CONFIG.get("head_count"), 1, minimum=1, maximum=100)
-    head_l_hour = as_float(CONFIG.get("head_flow_l_hour"), 0, minimum=0)
+    count = head_count()
     total_flow = heads_total_flow()   # heads' combined flow drives the water use
     tank_data = tank()
     minutes_to_reserve = None
@@ -281,8 +300,8 @@ def flow():
         minutes_to_reserve = round(tank_data["usable_l"] * 60.0 / total_flow, 1)
     return {
         "pump_l_hour": round(pump_l_hour, 1),
-        "head_count": heads,
-        "head_l_hour": round(head_l_hour, 1),
+        "head_count": count,
+        "heads": heads_list(),
         "heads_total_l_hour": total_flow,
         "pump_overload": pump_overload(),
         "minutes_to_reserve": minutes_to_reserve,
@@ -314,15 +333,62 @@ def soil():
     }
 
 
-def heads_total_flow():
-    """Combined nominal flow of all irrigation heads (L/h).
+def heads_list():
+    """Return the current heads list (always a list of dicts)."""
+    heads = CONFIG.get("heads")
+    return heads if isinstance(heads, list) else []
 
-    v1 (C model): uniform per-head flow x head_count. Mixed per-head flows
-    (a list) are a future extension.
+
+def normalize_heads():
+    """Validate/clean the heads list in-place: ensure dicts, ids, name, flow.
+
+    - Each head becomes {"id": int, "name": str, "flow_l_hour": float>=0}.
+    - Missing/duplicate ids are reassigned to unique increasing integers.
+    - Guarantees at least one head (default) so the system is never empty.
     """
-    head_flow = as_float(CONFIG.get("head_flow_l_hour"), 0, minimum=0)
-    heads = as_int(CONFIG.get("head_count"), 1, minimum=1, maximum=100)
-    return round(head_flow * heads, 3)
+    raw = CONFIG.get("heads")
+    if not isinstance(raw, list) or not raw:
+        CONFIG["heads"] = [{"id": 1, "name": "Head 1", "flow_l_hour": 4.0}]
+        return CONFIG["heads"]
+    cleaned = []
+    used_ids = set()
+    next_id = 1
+    for item in raw:
+        if not isinstance(item, dict):
+            continue
+        flow = as_float(item.get("flow_l_hour"), 0.0, minimum=0)
+        name = item.get("name")
+        name = str(name) if name not in (None, "") else None
+        hid = item.get("id")
+        try:
+            hid = int(hid)
+        except Exception:
+            hid = None
+        if hid is None or hid in used_ids:
+            while next_id in used_ids:
+                next_id += 1
+            hid = next_id
+        used_ids.add(hid)
+        if name is None:
+            name = "Head {}".format(hid)
+        cleaned.append({"id": hid, "name": name, "flow_l_hour": flow})
+    if not cleaned:
+        cleaned = [{"id": 1, "name": "Head 1", "flow_l_hour": 4.0}]
+    CONFIG["heads"] = cleaned
+    return cleaned
+
+
+def head_count():
+    """Derived: number of heads."""
+    return len(heads_list())
+
+
+def heads_total_flow():
+    """Combined nominal flow of all irrigation heads (L/h) = sum of per-head flows."""
+    total = 0.0
+    for h in heads_list():
+        total += as_float(h.get("flow_l_hour"), 0.0, minimum=0)
+    return round(total, 3)
 
 
 def pump_overload():
@@ -339,25 +405,33 @@ def pump_overload():
 def plan(volume_l=None, per_head_l=None):
     # Watering duration is driven by the HEADS' combined flow, not the pump.
     # The pump is only an upper bound (see pump_overload()).
+    heads = heads_list()
     total_flow = heads_total_flow()
-    heads = as_int(CONFIG.get("head_count"), 1, minimum=1, maximum=100)
+    count = len(heads)
     volume_l = as_float(volume_l, None, minimum=0)
     per_head_l = as_float(per_head_l, None, minimum=0)
-    if volume_l is not None and volume_l > 0:
-        duration_s = 0 if total_flow <= 0 else volume_l * 3600.0 / total_flow
-    elif per_head_l is not None and per_head_l > 0:
-        volume_l = per_head_l * heads
-        duration_s = 0 if total_flow <= 0 else volume_l * 3600.0 / total_flow
-    else:
-        duration_s = 0
+    # per_head_l is legacy/ambiguous with mixed heads; interpret as "avg per head".
+    if (volume_l is None or volume_l <= 0) and per_head_l is not None and per_head_l > 0:
+        volume_l = per_head_l * count
+    if volume_l is None or volume_l <= 0:
         volume_l = 0
+        duration_s = 0
+    else:
+        duration_s = 0 if total_flow <= 0 else volume_l * 3600.0 / total_flow
+    # Per-head dispensed volume: each head gets flow_l_hour * duration.
+    head_volumes = []
+    for h in heads:
+        hv = round(as_float(h.get("flow_l_hour"), 0.0, minimum=0) * duration_s / 3600.0, 3)
+        head_volumes.append({"id": h.get("id"), "name": h.get("name"),
+                             "flow_l_hour": as_float(h.get("flow_l_hour"), 0.0, minimum=0),
+                             "volume_l": hv})
     return {
         "duration_s": round(duration_s, 1),
         "volume_l": round(volume_l, 3),
-        "per_head_l": round(volume_l / heads, 3),
-        "head_count": heads,
+        "head_count": count,
         "heads_total_l_hour": total_flow,
         "pump_overload": pump_overload(),
+        "head_volumes": head_volumes,
     }
 
 

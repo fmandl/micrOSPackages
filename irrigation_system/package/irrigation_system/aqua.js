@@ -14,7 +14,6 @@ const configFields = {
   waterDistanceInput: "water_distance_cm",
   minLevelInput: "min_level_cm",
   pumpFlowInput: "pump_l_hour",
-  headCountInput: "head_count",
   soilSensorCountInput: "soil_sensor_count",
   levelModuleInput: "level_module",
   pumpPinInput: "pump_pin",
@@ -257,21 +256,36 @@ function renderBadges(data) {
   }
 }
 
-function renderHeads(count, headFlow) {
+function escapeHtml(s) {
+  return String(s == null ? "" : s)
+    .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;").replace(/'/g, "&#39;");
+}
+
+function truncateName(name, max = 12) {
+  const s = String(name == null ? "" : name);
+  return s.length > max ? s.slice(0, max - 1) + "\u2026" : s;
+}
+
+function renderHeads(heads) {
   const grid = byId("headGrid");
   if (!grid) return;
   grid.innerHTML = "";
-  const safeCount = clampCount(count, 1);
-  for (let i = 0; i < safeCount; i += 1) {
+  const list = Array.isArray(heads) && heads.length
+    ? heads
+    : [{ name: "Head 1", flow_l_hour: 0 }];
+  list.forEach((h, i) => {
+    const name = h.name || `Head ${i + 1}`;
     const head = document.createElement("div");
     head.className = "head";
+    head.title = name;   // full name on hover (truncated label on tile)
     head.innerHTML = `
       <div class="drops" aria-hidden="true"><span></span><span></span><span></span></div>
-      <strong>Head ${i + 1}</strong>
-      <span>${fmt(headFlow, " L/h")}</span>
+      <strong>${escapeHtml(truncateName(name))}</strong>
+      <span>${fmt(h.flow_l_hour, " L/h")}</span>
     `;
     grid.appendChild(head);
-  }
+  });
 }
 
 function soilLevelClass(value) {
@@ -406,15 +420,15 @@ function fillInputs(config) {
 function runEstimate() {
   const data = state.data || {};
   const config = data.config || {};
-  const heads = clampCount(config.head_count || 1, 1);
+  const flow = data.flow || {};
   const pump = Number(config.pump_l_hour || 0);
-  const headFlow = Number(config.head_flow_l_hour || 0);
-  const totalFlow = headFlow * heads;   // heads' combined flow drives the water use
+  // A model: combined flow comes from the backend (sum of per-head flows).
+  const totalFlow = Number(flow.heads_total_l_hour || 0);
+  const heads = clampCount(flow.head_count || (Array.isArray(config.heads) ? config.heads.length : 1), 1);
   const totalVolume = numberValue("runVolume") || 0;
   return {
     heads,
     pump,
-    headFlow,
     totalFlow,
     totalVolume,
     duration: totalFlow > 0 ? totalVolume * 3600 / totalFlow : 0,
@@ -627,10 +641,10 @@ function renderStatus(data) {
   setText("schemeSummary", `${headCount} heads / ${soilCount} sensors`);
   setText("usableWater", fmt(tank.usable_l, " L"));
   setText("metricPump", fmt(flow.pump_l_hour, " L/h"));
-  setText("metricHead", fmt(flow.head_l_hour, " L/h"));
+  setText("metricHead", fmt(flow.heads_total_l_hour, " L/h"));
   setText("metricReserve", reserveText(minLevel, tank.reserve_l));
 
-  renderHeads(headCount || 1, flow.head_l_hour || 0);
+  renderHeads(flow.heads);
   renderSoilSensors(soil);
   renderLevelSensor(data);
   renderBadges(data);
