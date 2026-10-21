@@ -1039,30 +1039,32 @@ async function loadSchedules() {
   }
 }
 
-// Collect the selected days as a crontasks weekday field.
-// Every day -> "0-6" (NOT "*", which the micrOS command parser rejects as a raw arg).
-// A single day -> "3"; a continuous range -> "a-b"; non-continuous -> null (ask to split).
-function selectedDaysField() {
-  if (byId("schedEveryDay")?.classList.contains("selected")) return "0-6";
+// Collect selected days as a list of crontasks weekday fields, one per
+// CONTINUOUS block (the built-in scheduler can't store gaps in a single block).
+// Every day -> ["0-6"]. Mon,Wed,Fri -> ["0","2","4"]. Mon,Tue,Thu,Fri -> ["0-1","3-4"].
+// Returns [] when nothing is selected.
+function selectedDayRanges() {
+  if (byId("schedEveryDay")?.classList.contains("selected")) return ["0-6"];
   const days = Array.from(document.querySelectorAll(".sched-day[data-day].selected"))
     .map((b) => Number(b.dataset.day)).sort((a, b) => a - b);
-  if (days.length === 0) return null;
-  if (days.length === 7) return "0-6";
-  if (days.length === 1) return String(days[0]);
-  // continuous range check
-  const continuous = days.every((d, i) => i === 0 || d === days[i - 1] + 1);
-  if (continuous) return `${days[0]}-${days[days.length - 1]}`;
-  return "__noncontinuous__";
+  if (days.length === 0) return [];
+  if (days.length === 7) return ["0-6"];
+  // Group into continuous runs.
+  const ranges = [];
+  let start = days[0], prev = days[0];
+  for (let i = 1; i < days.length; i++) {
+    if (days[i] === prev + 1) { prev = days[i]; continue; }
+    ranges.push(start === prev ? String(start) : `${start}-${prev}`);
+    start = prev = days[i];
+  }
+  ranges.push(start === prev ? String(start) : `${start}-${prev}`);
+  return ranges;
 }
 
 async function addSchedule(event) {
   event.preventDefault();
-  const days = selectedDaysField();
-  if (days === null) { setMessage("Select at least one day", "error"); return; }
-  if (days === "__noncontinuous__") {
-    setMessage("Pick a continuous day range, or add separate schedules", "error");
-    return;
-  }
+  const ranges = selectedDayRanges();
+  if (ranges.length === 0) { setMessage("Select at least one day", "error"); return; }
   const hour = numberValue("schedHour");
   const minute = numberValue("schedMinute");
   const volume = numberValue("schedVolume");
@@ -1072,12 +1074,16 @@ async function addSchedule(event) {
   const btn = byId("schedAddBtn");
   if (btn) btn.disabled = true;
   try {
-    await aquaCommand("schedule_add", { days, hour, minute, volume_l: volume });
-    setMessage("Schedule added");
+    // Non-continuous day selections become several schedules (one per block).
+    for (const days of ranges) {
+      await aquaCommand("schedule_add", { days, hour, minute, volume_l: volume });
+    }
+    setMessage(ranges.length > 1 ? `Added ${ranges.length} schedules` : "Schedule added");
     resetScheduleForm();
     await loadSchedules();
   } catch (err) {
     setMessage("Add failed: " + (err?.message || ""), "error");
+    await loadSchedules();   // reflect any partial additions
   } finally {
     if (btn) btn.disabled = false;
   }
