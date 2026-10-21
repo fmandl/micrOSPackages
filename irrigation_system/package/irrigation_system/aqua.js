@@ -170,7 +170,7 @@ function markConfigDirty() {
 }
 
 function setDirtyUI(dirty) {
-  byId("configDetails")?.classList.toggle("is-dirty", dirty);
+  document.querySelector(".settings-panel")?.classList.toggle("is-dirty", dirty);
   byId("saveState")?.classList.toggle("is-dirty", dirty);
 }
 
