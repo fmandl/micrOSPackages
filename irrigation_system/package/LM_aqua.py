@@ -78,6 +78,7 @@ def _dashboard_state(measure=False):
         "pump_on": pump["pump_on"],
         "run": snap["run"],                # active/last run plan (mode, elapsed, duration, ...)
         "fault": snap["fault"],            # {"reason": "low_water", ...} or None
+        "now": _node_clock(),              # node local clock (what the scheduler works against)
         "config": monitor["config"],
         "tank": monitor["tank"],
         "flow": monitor["flow"],

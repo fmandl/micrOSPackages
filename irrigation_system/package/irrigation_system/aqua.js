@@ -818,6 +818,7 @@ function renderFault(data = state.data) {
 function renderStatus(data) {
   state.data = data;
   state.statusAt = Date.now();
+  if (data.now) renderNodeClock(data.now);   // header clock from the main status poll
   const tank = data.tank || {};
   const flow = data.flow || {};
   const soil = data.soil || {};
@@ -1152,9 +1153,9 @@ function wireSchedule() {
   byId("scheduleDetails")?.addEventListener("toggle", (e) => {
     if (e.target.open) loadSchedules();
   });
-  // Tick the node clock locally once a second while the panel is open.
+  // Tick the node clock locally once a second (header clock is always visible).
   setInterval(() => {
-    if (byId("scheduleDetails")?.open && state.nodeClock) paintNodeClock();
+    if (state.nodeClock) paintNodeClock();
   }, 1000);
 }
 
