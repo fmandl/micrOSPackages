@@ -1129,3 +1129,9 @@ select {
   color: var(--amber);
   font-weight: 700;
 }
+
+/* Save button disabled when there is nothing to save */
+#saveConfigBtn:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}

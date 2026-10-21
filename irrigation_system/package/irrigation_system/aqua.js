@@ -165,13 +165,18 @@ function setNumberInput(id, value, digits = 3) {
 
 function markConfigDirty() {
   state.configDirty = true;
-  setText("saveState", "not saved");
   setDirtyUI(true);
 }
 
 function setDirtyUI(dirty) {
   document.querySelector(".settings-panel")?.classList.toggle("is-dirty", dirty);
-  byId("saveState")?.classList.toggle("is-dirty", dirty);
+  const saveState = byId("saveState");
+  if (saveState) {
+    saveState.textContent = dirty ? "not saved" : "";   // no label when saved/clean
+    saveState.classList.toggle("is-dirty", dirty);
+  }
+  const btn = byId("saveConfigBtn");
+  if (btn) btn.disabled = !dirty;   // Save disabled when there is nothing to save
 }
 
 function isManualLevelModule(value) {
@@ -807,6 +812,7 @@ function renderStatus(data) {
   renderHeadsEditor(config.heads);
   renderCalibrationEditor(config.tank_calibration);
   updateTankModeVisibility();
+  setDirtyUI(state.configDirty);   // keep Save button + label in sync with dirty state
   updatePumpPinLock(data);
   updateManualDistanceVisibility(config);
   renderLiveRun(data);
@@ -852,15 +858,12 @@ async function saveConfig(event) {
     state.settingsAt = Date.now();
     state.configDirty = false;
     renderStatus(data);
-    setText("saveState", "saved");
-    setDirtyUI(false);
+    setDirtyUI(false);   // clears the label + disables Save (nothing to save)
     setMessage("Configuration saved");
   } catch (err) {
-    setText("saveState", "not saved");
-    setDirtyUI(true);
+    setDirtyUI(true);    // keep "not saved" + Save enabled so the user can retry
     setMessage("Save failed", "error");
   } finally {
-    byId("saveConfigBtn").disabled = false;
     state.busy = false;
   }
 }
