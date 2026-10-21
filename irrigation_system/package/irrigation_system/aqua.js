@@ -7,6 +7,7 @@ const state = {
   blocked: null,   // transient reason when a start/resume was rejected (e.g. low_water)
   countdown: null, // {remaining, at} client-side 1s countdown, seeded from status
   lastDose: null,  // {totalFlow, xTotal, yTotal} kept after stop until next Start / Total L change
+  nodeClock: null, // {base, at, weekday} anchor for the locally-ticking node clock
 };
 
 const configFields = {
@@ -1034,9 +1035,39 @@ async function loadSchedules() {
   try {
     const res = await aquaCommand("schedule_list");
     renderScheduleList(res?.schedules);
+    renderNodeClock(res?.now);
   } catch (err) {
     // best-effort; keep the panel usable even if the node is briefly unreachable
   }
+}
+
+// Show the node's local clock so it's clear what the scheduler works against.
+// Seed from the node value, then tick locally while the panel is open.
+function renderNodeClock(now) {
+  if (now && now.iso) {
+    // Parse "YYYY-MM-DD HH:MM:SS" into an epoch anchor for local ticking.
+    const m = now.iso.match(/(\d+)-(\d+)-(\d+) (\d+):(\d+):(\d+)/);
+    if (m) {
+      const base = new Date(+m[1], +m[2] - 1, +m[3], +m[4], +m[5], +m[6]).getTime();
+      state.nodeClock = { base, at: Date.now(), weekday: now.weekday };
+    }
+  } else {
+    state.nodeClock = null;
+  }
+  paintNodeClock();
+}
+
+function paintNodeClock() {
+  const el = byId("nodeClock");
+  if (!el) return;
+  const nc = state.nodeClock;
+  if (!nc) { el.textContent = "Node time: unavailable"; return; }
+  const d = new Date(nc.base + (Date.now() - nc.at));
+  const pad = (n) => String(n).padStart(2, "0");
+  const iso = `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
+  // JS weekday: 0=Sun..6=Sat -> convert to node's 0=Mon..6=Sun.
+  const wdIdx = (d.getDay() + 6) % 7;
+  el.textContent = `Node time: ${iso} (${SCHED_DAY_LABELS[wdIdx]})`;
 }
 
 // Collect selected days as a list of crontasks weekday fields, one per
@@ -1121,6 +1152,10 @@ function wireSchedule() {
   byId("scheduleDetails")?.addEventListener("toggle", (e) => {
     if (e.target.open) loadSchedules();
   });
+  // Tick the node clock locally once a second while the panel is open.
+  setInterval(() => {
+    if (byId("scheduleDetails")?.open && state.nodeClock) paintNodeClock();
+  }, 1000);
 }
 
 function wire() {

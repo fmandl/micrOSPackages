@@ -1184,3 +1184,9 @@ select {
 .sched-time input { width: 64px; }
 .sched-colon { font-weight: bold; }
 .schedule-add-form .primary { width: 100%; }
+
+.node-clock {
+  color: var(--muted);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}

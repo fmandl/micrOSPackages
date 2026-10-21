@@ -258,13 +258,31 @@ def stop():
 
 # ---- scheduling (built-in Scheduler via crontasks; timed runs only) ----
 
+def _node_clock():
+    """Node local time as {'iso','hour','minute','second','weekday'} (best-effort).
+
+    weekday: 0=Mon..6=Sun (same convention as the scheduler weekday field).
+    """
+    try:
+        from time import localtime
+        t = localtime()                 # (year, month, mday, hour, minute, second, weekday, yearday)
+        return {
+            "iso": "%04d-%02d-%02d %02d:%02d:%02d" % (t[0], t[1], t[2], t[3], t[4], t[5]),
+            "hour": t[3], "minute": t[4], "second": t[5], "weekday": t[6],
+        }
+    except Exception:
+        return None
+
+
 def schedule_list():
     """
     List irrigation schedules parsed from the node's crontasks.
     Each: {id, days, hour, minute, volume_l, timestamp}. Only `aqua start`
     (timed) blocks are shown; other crontasks are ignored here.
+    `now` carries the node's local clock so the UI can show what the scheduler
+    works against.
     """
-    return {"schedules": scheduler_cfg.list_schedules()}
+    return {"schedules": scheduler_cfg.list_schedules(), "now": _node_clock()}
 
 
 def schedule_add(days="*", hour=6, minute=0, volume_l=1):
