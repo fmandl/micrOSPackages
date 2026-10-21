@@ -6,6 +6,7 @@ const state = {
   settingsAt: 0,
   blocked: null,   // transient reason when a start/resume was rejected (e.g. low_water)
   countdown: null, // {remaining, at} client-side 1s countdown, seeded from status
+  lastDose: null,  // {totalFlow, xTotal, yTotal} kept after stop until next Start / Total L change
 };
 
 const configFields = {
@@ -661,13 +662,22 @@ function headVolumes(data = state.data) {
       const elapsed = Math.max(0, Number(run.elapsed_s) || 0);
       yTotal = totalFlow > 0 ? totalFlow * elapsed / 3600 : 0;   // manual: flow * time
     }
-  } else {
-    // No run yet: preview X from the Total L typed in the run box, Y = 0.
-    const typed = numberValue("runVolume") || 0;
-    xTotal = typed > 0 ? typed : null;
-    yTotal = 0;
+    state.lastDose = { totalFlow, xTotal, yTotal };          // remember for after-stop display
+    return state.lastDose;
   }
+  // No active run. Keep the last run's Y/X after stop until the next Start or a
+  // Total L change clears it (see clearLastDose()).
+  if (state.lastDose) return state.lastDose;
+  // Nothing remembered: preview X from the Total L typed in the run box, Y = 0.
+  const typed = numberValue("runVolume") || 0;
+  xTotal = typed > 0 ? typed : null;
+  yTotal = 0;
   return { totalFlow, xTotal, yTotal };
+}
+
+// Clear the remembered post-stop Y/X (on next Start or when Total L changes).
+function clearLastDose() {
+  state.lastDose = null;
 }
 
 const PRIMARY_LABELS = {
@@ -925,6 +935,7 @@ async function primaryAction() {
         setMessage("Enter a water amount", "error");
         return;
       }
+      clearLastDose();   // next Start resets the per-head Y/X
       result = await aquaCommand("start", run);
     } else if (action === "pause") {
       result = await aquaCommand("pause");
@@ -988,6 +999,7 @@ function wire() {
   byId("runVolume")?.addEventListener("input", () => {
     renderLiveRun();
     renderFault();
+    clearLastDose();   // changing Total L resets the per-head Y/X
     renderHeads(state.data?.flow?.heads);   // live X preview from the typed Total L
   });
   Object.keys(configFields).forEach((id) => {
