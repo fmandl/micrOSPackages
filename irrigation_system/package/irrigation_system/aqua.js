@@ -9,6 +9,7 @@ const state = {
 };
 
 const configFields = {
+  tankModeInput: "tank_mode",
   tankWidthInput: "tank_width_cm",
   tankDepthInput: "tank_depth_cm",
   tankHeightInput: "tank_height_cm",
@@ -472,6 +473,74 @@ function headsFromEditor() {
   });
 }
 
+// ---- Tank mode + calibration editor (advanced mode) ----
+
+function tankModeValue() {
+  return byId("tankModeInput")?.value || "simple";
+}
+
+function updateTankModeVisibility() {
+  const advanced = tankModeValue() === "advanced";
+  const simple = byId("tankSimpleFields");
+  const adv = byId("tankAdvancedFields");
+  if (simple) simple.hidden = advanced;
+  if (adv) adv.hidden = !advanced;
+}
+
+function calibRowTemplate(point = {}) {
+  const row = document.createElement("div");
+  row.className = "head-row";
+  row.innerHTML = `
+    <input class="calib-dist" type="number" min="0" step="0.1" inputmode="decimal" placeholder="cm" />
+    <input class="calib-vol" type="number" min="0" step="0.1" inputmode="decimal" placeholder="L" />
+    <button type="button" class="head-del" title="Remove point">&#10005;</button>
+  `;
+  row.querySelector(".calib-dist").value = point.distance_cm == null ? "" : point.distance_cm;
+  row.querySelector(".calib-vol").value = point.volume_l == null ? "" : point.volume_l;
+  row.querySelector(".calib-dist").addEventListener("input", markConfigDirty);
+  row.querySelector(".calib-vol").addEventListener("input", markConfigDirty);
+  row.querySelector(".head-del").addEventListener("click", () => { row.remove(); markConfigDirty(); });
+  return row;
+}
+
+function renderCalibrationEditor(points) {
+  if (state.configDirty) return;
+  const editor = byId("calibrationEditor");
+  if (!editor) return;
+  editor.innerHTML = "";
+  (Array.isArray(points) ? points : []).forEach((p) => editor.appendChild(calibRowTemplate(p)));
+}
+
+function calibrationFromEditor() {
+  const editor = byId("calibrationEditor");
+  if (!editor) return [];
+  return Array.from(editor.querySelectorAll(".head-row")).map((row) => ({
+    distance_cm: Number(row.querySelector(".calib-dist").value),
+    volume_l: Number(row.querySelector(".calib-vol").value),
+  })).filter((p) => Number.isFinite(p.distance_cm) && Number.isFinite(p.volume_l));
+}
+
+async function measureCalibrationPoint() {
+  const btn = byId("addCalibBtn");
+  if (btn) btn.disabled = true;
+  try {
+    const res = await aquaCommand("sensor_distance");
+    const dist = res && (res.distance_cm ?? res.raw?.cm);
+    const editor = byId("calibrationEditor");
+    if (editor) {
+      const row = calibRowTemplate({ distance_cm: Number.isFinite(Number(dist)) ? Math.round(Number(dist) * 10) / 10 : "" });
+      editor.appendChild(row);
+      row.querySelector(".calib-vol").focus();   // user types the litres
+    }
+    markConfigDirty();
+    setMessage(Number.isFinite(Number(dist)) ? `Measured ${Math.round(Number(dist) * 10) / 10} cm — enter litres` : "Measure failed", Number.isFinite(Number(dist)) ? "neutral" : "error");
+  } catch (err) {
+    setMessage("Measure failed: " + (err?.message || ""), "error");
+  } finally {
+    if (btn) btn.disabled = false;
+  }
+}
+
 function runEstimate() {
   const data = state.data || {};
   const config = data.config || {};
@@ -730,6 +799,8 @@ function renderStatus(data) {
   renderBadges(data);
   fillInputs(config);
   renderHeadsEditor(config.heads);
+  renderCalibrationEditor(config.tank_calibration);
+  updateTankModeVisibility();
   updatePumpPinLock(data);
   updateManualDistanceVisibility(config);
   renderLiveRun(data);
@@ -760,6 +831,8 @@ function configPayload() {
     delete payload.water_distance_cm;
   }
   payload.heads = headsFromEditor();
+  payload.tank_mode = tankModeValue();
+  payload.tank_calibration = calibrationFromEditor();
   return payload;
 }
 
@@ -847,6 +920,11 @@ function wire() {
     const editor = byId("headsEditor");
     if (editor) editor.appendChild(headRowTemplate({}));
     markConfigDirty();
+  });
+  byId("addCalibBtn")?.addEventListener("click", measureCalibrationPoint);
+  byId("tankModeInput")?.addEventListener("change", () => {
+    markConfigDirty();
+    updateTankModeVisibility();
   });
   byId("primaryBtn")?.addEventListener("click", primaryAction);
   byId("stopBtn")?.addEventListener("click", stopAction);

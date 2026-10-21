@@ -162,17 +162,31 @@
         <fieldset class="config-group">
           <legend>Tank</legend>
           <label>
-            <span>Width cm</span>
-            <input id="tankWidthInput" name="tank_width_cm" type="number" min="0.1" step="any" inputmode="decimal" />
+            <span>Mode</span>
+            <select id="tankModeInput" name="tank_mode">
+              <option value="simple">Simple (W×D×H)</option>
+              <option value="advanced">Advanced (calibration)</option>
+            </select>
           </label>
-          <label>
-            <span>Depth cm</span>
-            <input id="tankDepthInput" name="tank_depth_cm" type="number" min="0.1" step="any" inputmode="decimal" />
-          </label>
-          <label>
-            <span>Height cm</span>
-            <input id="tankHeightInput" name="tank_height_cm" type="number" min="0.1" step="any" inputmode="decimal" />
-          </label>
+          <div id="tankSimpleFields">
+            <label>
+              <span>Width cm</span>
+              <input id="tankWidthInput" name="tank_width_cm" type="number" min="0.1" step="any" inputmode="decimal" />
+            </label>
+            <label>
+              <span>Depth cm</span>
+              <input id="tankDepthInput" name="tank_depth_cm" type="number" min="0.1" step="any" inputmode="decimal" />
+            </label>
+            <label>
+              <span>Height cm</span>
+              <input id="tankHeightInput" name="tank_height_cm" type="number" min="0.1" step="any" inputmode="decimal" />
+            </label>
+          </div>
+          <div id="tankAdvancedFields" hidden>
+            <span class="config-hint">Calibration points (empty tank first = 0 L). Add points as you pour known amounts.</span>
+            <div id="calibrationEditor" class="heads-editor"></div>
+            <button id="addCalibBtn" type="button" class="add-head-btn">+ Measure point</button>
+          </div>
           <label>
             <span>Min level cm</span>
             <input id="minLevelInput" name="min_level_cm" type="number" min="0" step="any" inputmode="decimal" />

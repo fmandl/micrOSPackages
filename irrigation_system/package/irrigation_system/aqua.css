@@ -1101,3 +1101,7 @@ select {
 .config-save-row .primary {
   min-width: 140px;
 }
+
+/* Calibration row (distance + volume) */
+.head-row .calib-dist,
+.head-row .calib-vol { flex: 1 1 auto; min-width: 0; }
