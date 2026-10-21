@@ -139,6 +139,50 @@
     </section>
 
     <section class="settings-panel">
+      <details id="scheduleDetails" class="config-details">
+        <summary class="section-title config-summary">
+          <h2>Schedule</h2>
+          <span id="scheduleSummary"></span>
+        </summary>
+
+        <div class="schedule-body">
+          <div id="scheduleList" class="schedule-list"></div>
+
+          <form id="scheduleForm" class="schedule-add-form">
+            <fieldset class="config-group">
+              <legend>New schedule</legend>
+              <div class="sched-days" id="schedDays" role="group" aria-label="Days">
+                <button type="button" class="sched-day" data-day="0">Mon</button>
+                <button type="button" class="sched-day" data-day="1">Tue</button>
+                <button type="button" class="sched-day" data-day="2">Wed</button>
+                <button type="button" class="sched-day" data-day="3">Thu</button>
+                <button type="button" class="sched-day" data-day="4">Fri</button>
+                <button type="button" class="sched-day" data-day="5">Sat</button>
+                <button type="button" class="sched-day" data-day="6">Sun</button>
+                <button type="button" class="sched-day sched-day-all" id="schedEveryDay">Every day</button>
+              </div>
+              <div class="sched-row">
+                <label>
+                  <span>Time</span>
+                  <span class="sched-time">
+                    <input id="schedHour" type="number" min="0" max="23" step="1" inputmode="numeric" placeholder="HH" />
+                    <span class="sched-colon">:</span>
+                    <input id="schedMinute" type="number" min="0" max="59" step="1" inputmode="numeric" placeholder="MM" />
+                  </span>
+                </label>
+                <label>
+                  <span>Total L</span>
+                  <input id="schedVolume" type="number" min="0.1" step="any" inputmode="decimal" placeholder="L" />
+                </label>
+              </div>
+              <button id="schedAddBtn" type="submit" class="primary">+ Add schedule</button>
+            </fieldset>
+          </form>
+        </div>
+      </details>
+    </section>
+
+    <section class="settings-panel">
       <details id="configDetails" class="config-details">
         <summary class="section-title config-summary">
           <h2>Configuration</h2>

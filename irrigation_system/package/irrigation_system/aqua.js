@@ -979,6 +979,144 @@ async function stopAction() {
   }
 }
 
+// ======================= Schedule (cron) =======================
+
+const SCHED_DAY_LABELS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+
+// Human label for a crontasks weekday field ('*', '0-6', '0-4', single '3').
+function daysLabel(days) {
+  const s = String(days == null ? "*" : days).trim();
+  if (s === "*" || s === "0-6") return "Every day";
+  const range = s.match(/^([0-6])-([0-6])$/);
+  if (range) {
+    const a = Number(range[1]), b = Number(range[2]);
+    if (a === 0 && b === 4) return "Mon\u2013Fri";
+    if (a === 5 && b === 6) return "Weekend";
+    return `${SCHED_DAY_LABELS[a]}\u2013${SCHED_DAY_LABELS[b]}`;
+  }
+  if (/^[0-6]$/.test(s)) return SCHED_DAY_LABELS[Number(s)];
+  return s;
+}
+
+function fmtHM(hour, minute) {
+  const h = String(hour == null ? 0 : hour).padStart(2, "0");
+  const m = String(minute == null ? 0 : minute).padStart(2, "0");
+  return `${h}:${m}`;
+}
+
+function renderScheduleList(schedules) {
+  const list = byId("scheduleList");
+  if (!list) return;
+  list.innerHTML = "";
+  const items = Array.isArray(schedules) ? schedules : [];
+  setText("scheduleSummary", items.length ? `${items.length} scheduled` : "none");
+  if (!items.length) {
+    const empty = document.createElement("div");
+    empty.className = "schedule-empty";
+    empty.textContent = "No schedules yet.";
+    list.appendChild(empty);
+    return;
+  }
+  items.forEach((s) => {
+    const row = document.createElement("div");
+    row.className = "schedule-item";
+    row.innerHTML = `
+      <span class="sched-when"><strong>${fmtHM(s.hour, s.minute)}</strong> <span class="sched-days-lbl">${escapeHtml(daysLabel(s.days))}</span></span>
+      <span class="sched-vol">${fmt(s.volume_l, " L")}</span>
+      <button type="button" class="sched-del" title="Remove" data-index="${s.id}">&#10005;</button>
+    `;
+    row.querySelector(".sched-del").addEventListener("click", () => removeSchedule(s.id));
+    list.appendChild(row);
+  });
+}
+
+async function loadSchedules() {
+  try {
+    const res = await aquaCommand("schedule_list");
+    renderScheduleList(res?.schedules);
+  } catch (err) {
+    // best-effort; keep the panel usable even if the node is briefly unreachable
+  }
+}
+
+// Collect the selected days as a crontasks weekday field.
+// Every day -> "0-6" (NOT "*", which the micrOS command parser rejects as a raw arg).
+// A single day -> "3"; a continuous range -> "a-b"; non-continuous -> null (ask to split).
+function selectedDaysField() {
+  if (byId("schedEveryDay")?.classList.contains("selected")) return "0-6";
+  const days = Array.from(document.querySelectorAll(".sched-day[data-day].selected"))
+    .map((b) => Number(b.dataset.day)).sort((a, b) => a - b);
+  if (days.length === 0) return null;
+  if (days.length === 7) return "0-6";
+  if (days.length === 1) return String(days[0]);
+  // continuous range check
+  const continuous = days.every((d, i) => i === 0 || d === days[i - 1] + 1);
+  if (continuous) return `${days[0]}-${days[days.length - 1]}`;
+  return "__noncontinuous__";
+}
+
+async function addSchedule(event) {
+  event.preventDefault();
+  const days = selectedDaysField();
+  if (days === null) { setMessage("Select at least one day", "error"); return; }
+  if (days === "__noncontinuous__") {
+    setMessage("Pick a continuous day range, or add separate schedules", "error");
+    return;
+  }
+  const hour = numberValue("schedHour");
+  const minute = numberValue("schedMinute");
+  const volume = numberValue("schedVolume");
+  if (!Number.isFinite(hour) || hour < 0 || hour > 23) { setMessage("Enter a valid hour (0-23)", "error"); return; }
+  if (!Number.isFinite(minute) || minute < 0 || minute > 59) { setMessage("Enter a valid minute (0-59)", "error"); return; }
+  if (!Number.isFinite(volume) || volume <= 0) { setMessage("Enter a Total L amount", "error"); return; }
+  const btn = byId("schedAddBtn");
+  if (btn) btn.disabled = true;
+  try {
+    await aquaCommand("schedule_add", { days, hour, minute, volume_l: volume });
+    setMessage("Schedule added");
+    resetScheduleForm();
+    await loadSchedules();
+  } catch (err) {
+    setMessage("Add failed: " + (err?.message || ""), "error");
+  } finally {
+    if (btn) btn.disabled = false;
+  }
+}
+
+async function removeSchedule(index) {
+  try {
+    await aquaCommand("schedule_remove", { index });
+    setMessage("Schedule removed");
+    await loadSchedules();
+  } catch (err) {
+    setMessage("Remove failed: " + (err?.message || ""), "error");
+  }
+}
+
+function resetScheduleForm() {
+  document.querySelectorAll("#schedDays .sched-day.selected").forEach((b) => b.classList.remove("selected"));
+  ["schedHour", "schedMinute", "schedVolume"].forEach((id) => { const el = byId(id); if (el) el.value = ""; });
+}
+
+function wireSchedule() {
+  // Day toggles: picking a weekday clears "Every day" and vice versa.
+  document.querySelectorAll("#schedDays .sched-day[data-day]").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      byId("schedEveryDay")?.classList.remove("selected");
+      btn.classList.toggle("selected");
+    });
+  });
+  byId("schedEveryDay")?.addEventListener("click", () => {
+    const on = byId("schedEveryDay").classList.toggle("selected");
+    if (on) document.querySelectorAll("#schedDays .sched-day[data-day].selected").forEach((b) => b.classList.remove("selected"));
+  });
+  byId("scheduleForm")?.addEventListener("submit", addSchedule);
+  // Load schedules when the panel is first opened.
+  byId("scheduleDetails")?.addEventListener("toggle", (e) => {
+    if (e.target.open) loadSchedules();
+  });
+}
+
 function wire() {
   byId("refreshBtn")?.addEventListener("click", refresh);
   byId("configForm")?.addEventListener("submit", saveConfig);
@@ -1015,6 +1153,7 @@ function wire() {
 }
 
 wire();
+wireSchedule();
 updateManualDistanceVisibility();
 refresh();
 
