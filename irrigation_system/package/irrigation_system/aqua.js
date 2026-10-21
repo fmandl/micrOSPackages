@@ -166,6 +166,12 @@ function setNumberInput(id, value, digits = 3) {
 function markConfigDirty() {
   state.configDirty = true;
   setText("saveState", "not saved");
+  setDirtyUI(true);
+}
+
+function setDirtyUI(dirty) {
+  byId("configDetails")?.classList.toggle("is-dirty", dirty);
+  byId("saveState")?.classList.toggle("is-dirty", dirty);
 }
 
 function isManualLevelModule(value) {
@@ -847,9 +853,11 @@ async function saveConfig(event) {
     state.configDirty = false;
     renderStatus(data);
     setText("saveState", "saved");
+    setDirtyUI(false);
     setMessage("Configuration saved");
   } catch (err) {
     setText("saveState", "not saved");
+    setDirtyUI(true);
     setMessage("Save failed", "error");
   } finally {
     byId("saveConfigBtn").disabled = false;

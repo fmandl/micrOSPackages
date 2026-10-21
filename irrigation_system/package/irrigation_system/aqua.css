@@ -1105,3 +1105,30 @@ select {
 /* Calibration row (distance + volume) */
 .head-row .calib-dist,
 .head-row .calib-vol { flex: 1 1 auto; min-width: 0; }
+
+/* Editor column headers (Heads / Calibration) */
+.editor-head {
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 650;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+  margin-bottom: 2px;
+}
+.editor-head .col-name { flex: 1 1 auto; min-width: 0; }
+.editor-head .col-flow { flex: 0 0 72px; width: 72px; }
+.editor-head .col-del  { flex: 0 0 32px; width: 32px; }
+/* calibration rows use two flex:1 inputs -> header matches */
+.tank-group .editor-head .col-name,
+.tank-group .editor-head .col-flow { flex: 1 1 auto; width: auto; }
+
+/* Unsaved configuration indicator (yellow) */
+.config-details.is-dirty {
+  border: 1px solid var(--amber);
+  border-radius: 8px;
+}
+.config-details.is-dirty > .config-summary #saveState,
+#saveState.is-dirty {
+  color: var(--amber);
+  font-weight: 700;
+}

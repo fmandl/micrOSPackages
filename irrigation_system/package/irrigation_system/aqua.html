@@ -159,7 +159,7 @@
           </label>
         </fieldset>
 
-        <fieldset class="config-group">
+        <fieldset class="config-group tank-group">
           <legend>Tank</legend>
           <label>
             <span>Mode</span>
@@ -184,6 +184,11 @@
           </div>
           <div id="tankAdvancedFields" hidden>
             <span class="config-hint">Calibration points (empty tank first = 0 L). Add points as you pour known amounts.</span>
+            <div class="editor-head head-row">
+              <span class="col-name">Distance cm</span>
+              <span class="col-flow">Volume L</span>
+              <span class="col-del"></span>
+            </div>
             <div id="calibrationEditor" class="heads-editor"></div>
             <button id="addCalibBtn" type="button" class="add-head-btn">+ Measure point</button>
           </div>
@@ -211,6 +216,11 @@
 
         <fieldset class="config-group compact heads-group">
           <legend>Heads</legend>
+          <div class="editor-head head-row">
+            <span class="col-name">Name</span>
+            <span class="col-flow">Flow L/h</span>
+            <span class="col-del"></span>
+          </div>
           <div id="headsEditor" class="heads-editor"></div>
           <button id="addHeadBtn" type="button" class="add-head-btn">+ Add head</button>
         </fieldset>
