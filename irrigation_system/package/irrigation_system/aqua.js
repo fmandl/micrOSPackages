@@ -297,8 +297,13 @@ function renderHeads(heads) {
   const list = Array.isArray(heads) && heads.length
     ? heads
     : [{ name: "Head 1", flow_l_hour: 0 }];
+  const vols = headVolumes();
   list.forEach((h, i) => {
     const name = h.name || `Head ${i + 1}`;
+    const flow = Number(h.flow_l_hour) || 0;
+    const share = vols.totalFlow > 0 ? flow / vols.totalFlow : 0;
+    const x = vols.xTotal == null ? null : vols.xTotal * share;   // planned for this head
+    const y = vols.yTotal == null ? null : vols.yTotal * share;   // dispensed for this head
     const head = document.createElement("div");
     head.className = "head";
     head.title = name;   // full name on hover (truncated label on tile)
@@ -306,9 +311,18 @@ function renderHeads(heads) {
       <div class="drops" aria-hidden="true"><span></span><span></span><span></span></div>
       <strong>${escapeHtml(truncateName(name))}</strong>
       <span>${fmt(h.flow_l_hour, " L/h")}</span>
+      <span class="head-dose">${headDoseText(y, x)}</span>
     `;
     grid.appendChild(head);
   });
+}
+
+// "Y / X" litres for a head: dispensed so far / planned. Shows "--" when no plan.
+function headDoseText(y, x) {
+  if (x == null && (y == null || y === 0)) return "&ndash;";
+  const yTxt = y == null ? "0" : (Math.round(y * 100) / 100).toString();
+  const xTxt = x == null ? "&infin;" : (Math.round(x * 100) / 100).toString();
+  return `${yTxt} / ${xTxt} L`;
 }
 
 function soilLevelClass(value) {
@@ -624,6 +638,36 @@ function projectedRun(data = state.data) {
     elapsed_s: elapsed,
     infinite: true,
   };
+}
+
+// Per-head planned (X) and dispensed (Y) totals, split proportionally by flow.
+// X = planned volume for this run (run target while a run exists, otherwise the
+//     Total L typed into the run box). Y = actually dispensed so far, updated on
+//     every state change (pause/stop/auto-stop) via run.elapsed_s / dispensed_l.
+function headVolumes(data = state.data) {
+  const flow = data?.flow || {};
+  const totalFlow = Number(flow.heads_total_l_hour || 0);   // Sum of head flows
+  const run = activeRun(data);
+  const proj = projectedRun(data);
+
+  let xTotal = null;   // planned total litres
+  let yTotal = null;   // dispensed total litres
+  if (run) {
+    const target = Number(run.volume_l) || 0;               // timed target (0 for manual)
+    xTotal = target > 0 ? target : null;                    // manual has no planned target
+    if (proj && proj.dispensed_l != null) {
+      yTotal = proj.dispensed_l;                            // timed: clamped dispensed
+    } else {
+      const elapsed = Math.max(0, Number(run.elapsed_s) || 0);
+      yTotal = totalFlow > 0 ? totalFlow * elapsed / 3600 : 0;   // manual: flow * time
+    }
+  } else {
+    // No run yet: preview X from the Total L typed in the run box, Y = 0.
+    const typed = numberValue("runVolume") || 0;
+    xTotal = typed > 0 ? typed : null;
+    yTotal = 0;
+  }
+  return { totalFlow, xTotal, yTotal };
 }
 
 const PRIMARY_LABELS = {
@@ -944,6 +988,7 @@ function wire() {
   byId("runVolume")?.addEventListener("input", () => {
     renderLiveRun();
     renderFault();
+    renderHeads(state.data?.flow?.heads);   // live X preview from the typed Total L
   });
   Object.keys(configFields).forEach((id) => {
     byId(id)?.addEventListener("input", () => {

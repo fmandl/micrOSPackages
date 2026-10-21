@@ -1135,3 +1135,10 @@ select {
   cursor: not-allowed;
   opacity: 0.5;
 }
+
+.head-dose {
+  margin-top: 2px;
+  font-size: 12px;
+  font-weight: 650;
+  color: var(--text);
+}
