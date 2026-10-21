@@ -18,6 +18,8 @@ CONFIG = {
     "tank_width_cm": 40.0,
     "tank_depth_cm": 25.0,
     "tank_height_cm": 20.0,
+    "tank_mode": "simple",
+    "tank_calibration": [],
     "water_distance_cm": 7.0,
     "min_level_cm": 2.0,
     "pump_l_hour": 300.0,
@@ -179,10 +181,102 @@ def update_config(data):
     if "heads" in data and isinstance(data.get("heads"), list):
         CONFIG["heads"] = data["heads"]
     normalize_heads()
+    # Tank mode + calibration points (advanced mode).
+    if "tank_mode" in data and data.get("tank_mode") is not None:
+        mode = str(data.get("tank_mode")).lower()
+        CONFIG["tank_mode"] = "advanced" if mode == "advanced" else "simple"
+    if "tank_calibration" in data and isinstance(data.get("tank_calibration"), list):
+        CONFIG["tank_calibration"] = data["tank_calibration"]
     save_config()   # persist every configure/GUI change to /data
 
 
+def calibration_points():
+    """Return valid calibration points sorted by distance, ascending.
+
+    Each point: {"distance_cm": float>=0, "volume_l": float>=0}.
+    """
+    raw = CONFIG.get("tank_calibration")
+    pts = []
+    if isinstance(raw, list):
+        for p in raw:
+            if not isinstance(p, dict):
+                continue
+            d = as_float(p.get("distance_cm"), None, minimum=0)
+            v = as_float(p.get("volume_l"), None, minimum=0)
+            if d is not None and v is not None:
+                pts.append({"distance_cm": round(d, 2), "volume_l": round(v, 3)})
+    pts.sort(key=lambda p: p["distance_cm"])
+    return pts
+
+
+def calibration_active():
+    """Advanced calibration is used only in advanced mode with >=2 valid points."""
+    mode = optional_str(CONFIG.get("tank_mode")) or "simple"
+    return mode.lower() == "advanced" and len(calibration_points()) >= 2
+
+
+def interp_volume(distance_cm, pts=None):
+    """Linear interpolation distance_cm -> volume_l over calibration points.
+
+    Points are sorted by distance ascending. Out-of-range: clamp to the end value.
+    (Smaller distance = more water, so volume decreases as distance increases.)
+    """
+    pts = calibration_points() if pts is None else pts
+    if not pts or distance_cm is None:
+        return None
+    if distance_cm <= pts[0]["distance_cm"]:
+        return pts[0]["volume_l"]
+    if distance_cm >= pts[-1]["distance_cm"]:
+        return pts[-1]["volume_l"]
+    for i in range(1, len(pts)):
+        a, b = pts[i - 1], pts[i]
+        if a["distance_cm"] <= distance_cm <= b["distance_cm"]:
+            span = b["distance_cm"] - a["distance_cm"]
+            if span <= 0:
+                return a["volume_l"]
+            t = (distance_cm - a["distance_cm"]) / span
+            return round(a["volume_l"] + t * (b["volume_l"] - a["volume_l"]), 3)
+    return pts[-1]["volume_l"]
+
+
+def _tank_advanced():
+    """Tank state from the calibration curve (advanced mode)."""
+    pts = calibration_points()
+    distance = as_float(CONFIG.get("water_distance_cm"), None, minimum=0)
+    reserve_cm = as_float(CONFIG.get("min_level_cm"), 0, minimum=0)
+    floor_distance = pts[-1]["distance_cm"]          # largest distance = empty tank = floor
+    capacity = round(pts[0]["volume_l"], 2)          # smallest distance = full
+    water_height = None
+    level = None
+    volume_l = None
+    if distance is not None:
+        water_height = round(max(0, floor_distance - distance), 2)
+        level = round(water_height * 100.0 / floor_distance, 1) if floor_distance > 0 else None
+        volume_l = round(interp_volume(distance, pts) or 0, 2)
+    # reserve volume: volume at the distance that corresponds to min_level_cm above the floor
+    reserve_distance = max(0, floor_distance - reserve_cm)
+    reserve_l = round(interp_volume(reserve_distance, pts) or 0, 2)
+    usable_l = None if volume_l is None else round(max(0, volume_l - reserve_l), 2)
+    return {
+        "mode": "advanced",
+        "width_cm": None,
+        "depth_cm": None,
+        "height_cm": floor_distance,
+        "water_distance_cm": distance,
+        "water_height_cm": water_height,
+        "level_percent": level,
+        "capacity_l": capacity,
+        "volume_l": volume_l,
+        "reserve_cm": reserve_cm,
+        "reserve_l": reserve_l,
+        "usable_l": usable_l,
+        "source": "calibration",
+    }
+
+
 def tank():
+    if calibration_active():
+        return _tank_advanced()
     width = as_float(CONFIG.get("tank_width_cm"), 0, minimum=0)
     depth = as_float(CONFIG.get("tank_depth_cm"), 0, minimum=0)
     height = as_float(CONFIG.get("tank_height_cm"), 0, minimum=0)
@@ -199,6 +293,7 @@ def tank():
     reserve_l = round(width * depth * reserve_cm / 1000.0, 2)
     usable_l = None if volume_l is None else round(max(0, volume_l - reserve_l), 2)
     return {
+        "mode": "simple",
         "width_cm": width,
         "depth_cm": depth,
         "height_cm": height,
