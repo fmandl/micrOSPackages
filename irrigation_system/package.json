@@ -1,5 +1,5 @@
 {
-    "version": "0.3.6",
+    "version": "0.4.0",
     "urls": [
         [
             "LM_aqua.py",
@@ -28,6 +28,10 @@
         [
             "irrigation_system/monitoring.py",
             "github:fmandl/micrOSPackages/irrigation_system/package/monitoring.py"
+        ],
+        [
+            "irrigation_system/scheduler_cfg.py",
+            "github:fmandl/micrOSPackages/irrigation_system/package/scheduler_cfg.py"
         ],
         [
             "irrigation_system/state_machine.py",

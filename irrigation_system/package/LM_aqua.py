@@ -18,7 +18,7 @@ except Exception:
 from Common import web_endpoint
 from microIO import pinmap_search
 from Types import resolve
-from irrigation_system import actuators, monitoring, state_machine, status_led, button as button_mod
+from irrigation_system import actuators, monitoring, state_machine, status_led, button as button_mod, scheduler_cfg
 
 
 # --- module-level state machine wiring (singleton) ---
@@ -256,6 +256,42 @@ def stop():
     return _fsm().transition("stop")
 
 
+# ---- scheduling (built-in Scheduler via crontasks; timed runs only) ----
+
+def schedule_list():
+    """
+    List irrigation schedules parsed from the node's crontasks.
+    Each: {id, days, hour, minute, volume_l, timestamp}. Only `aqua start`
+    (timed) blocks are shown; other crontasks are ignored here.
+    """
+    return {"schedules": scheduler_cfg.list_schedules()}
+
+
+def schedule_add(days="*", hour=6, minute=0, volume_l=1):
+    """
+    Add a timed irrigation schedule.
+    - days: '*' (every day), a single 0..6 (0=Mon), or a range like '0-4'
+    - hour/minute: time of day; volume_l: Total litres to dispense
+    Writes the crontasks config (persistent); the built-in Scheduler runs it.
+    Future: sun-tag timestamps (sunrise/sunset+/-min) and manual/time-capped runs.
+    """
+    new_cron = scheduler_cfg.add_schedule(days=days, hour=hour, minute=minute, volume_l=volume_l)
+    ok = scheduler_cfg.set_crontasks(new_cron)
+    return {"state": bool(ok), "crontasks": new_cron,
+            "schedules": scheduler_cfg.list_schedules(new_cron)}
+
+
+def schedule_remove(index=0):
+    """
+    Remove the Nth irrigation schedule (0-based over irrigation blocks only).
+    Other crontasks are left untouched.
+    """
+    new_cron = scheduler_cfg.remove_schedule(int(index))
+    ok = scheduler_cfg.set_crontasks(new_cron)
+    return {"state": bool(ok), "crontasks": new_cron,
+            "schedules": scheduler_cfg.list_schedules(new_cron)}
+
+
 def sensor_distance(module=None):
     """
     Read top-to-water distance from the configured ultrasonic distance module.
@@ -308,4 +344,7 @@ def help(widgets=False):
         "configure tank_width_cm=40 tank_depth_cm=25 tank_height_cm=20 water_distance_cm=7 min_level_cm=2 level_module=manual pump_l_hour=300 soil_sensor_count=4 pump_pin=3 checkpoint_interval_s=0 max_runtime_s=0 led_pin=6 led_count=1 led_brightness=100 led_blink_ms=400 btn_pin=45 btn_long_ms=1500 btn_debounce_ms=50",
         "set_level distance_cm=7 distance_mm=None measure=False module=None clear=False",
         "ready volume_l=None",
+        "schedule_list",
+        "schedule_add days=* hour=6 minute=0 volume_l=1",
+        "schedule_remove index=0",
     ), widgets=widgets)
