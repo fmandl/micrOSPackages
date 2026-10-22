@@ -292,8 +292,15 @@ def _ensure_cron():
             cfgput("cron", True)                 # persist so it also survives reboots
         if str(cfgget("crontasks")).lower() == "n/a":
             return False                         # nothing to run; timer stays as-is
-        from Interrupts import enableCron        # idempotent: Timer(1).init re-arms
-        enableCron()
+        import Interrupts
+        # enableCron()'s timer callback refers to module-global `scheduler`, which
+        # Interrupts imports ONLY if cron was already True at boot. If cron was off
+        # at boot, that global is missing -> the timer fires but the callback dies
+        # silently (NameError), so nothing runs. Inject it before arming.
+        if not hasattr(Interrupts, "scheduler"):
+            from Scheduler import scheduler as _sched
+            Interrupts.scheduler = _sched
+        Interrupts.enableCron()                  # idempotent: Timer(1).init re-arms
         return True
     except Exception:
         return False
