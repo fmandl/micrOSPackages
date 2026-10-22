@@ -1131,30 +1131,58 @@ async function addSchedule(event) {
   const btn = byId("schedAddBtn");
   if (btn) btn.disabled = true;
   try {
-    // Send ALL day blocks in ONE call (comma-separated) so the node writes the
-    // config once and arms the cron timer once — back-to-back adds destabilise it.
+    // Send ALL day blocks in ONE call (comma-separated). The node activates the
+    // schedule by a soft reboot (like the stock /config Scheduler), so the cron
+    // timer is recreated at boot against the full crontasks.
     const res = await aquaCommand("schedule_add", {
       days: ranges.join(","), hour, minute, volume_l: volume,
     });
-    setMessage(ranges.length > 1 ? `Added ${ranges.length} schedules` : "Schedule added");
     resetScheduleForm();
-    await loadSchedules();
-    if (res && typeof res.cron_armed !== "undefined") {
-      renderSchedulerStatus(true, res.cron_armed);
+    if (res && res.reboot) {
+      onScheduleReboot(ranges.length > 1 ? `Added ${ranges.length} schedules` : "Schedule added");
+    } else {
+      setMessage(ranges.length > 1 ? `Added ${ranges.length} schedules` : "Schedule added");
+      await loadSchedules();
     }
   } catch (err) {
     setMessage("Add failed: " + (err?.message || ""), "error");
-    await loadSchedules();   // reflect any partial additions
+    await loadSchedules();
   } finally {
     if (btn) btn.disabled = false;
   }
 }
 
+// A schedule change triggers a node soft reboot (the reliable way to (re)arm the
+// built-in multi-block cron). Inform the user, wait for the node to come back,
+// then reload the list and clock.
+function onScheduleReboot(okMessage) {
+  setMessage(okMessage + " — node rebooting to activate…", "neutral");
+  renderSchedulerStatus(undefined);
+  const el = byId("schedulerStatus");
+  if (el) { el.className = "scheduler-status is-warn"; el.textContent = "\u21BB Node rebooting…"; }
+  let waited = 0;
+  const poll = setInterval(async () => {
+    waited += 2;
+    try {
+      await aquaCommand("schedule_list");   // throws while the node is rebooting
+      clearInterval(poll);
+      await loadSchedules();
+      setMessage(okMessage + " — scheduler active");
+    } catch (_) {
+      if (waited >= 20) { clearInterval(poll); setMessage("Node did not respond after reboot", "error"); }
+    }
+  }, 2000);
+}
+
 async function removeSchedule(index) {
   try {
-    await aquaCommand("schedule_remove", { index });
-    setMessage("Schedule removed");
-    await loadSchedules();
+    const res = await aquaCommand("schedule_remove", { index });
+    if (res && res.reboot) {
+      onScheduleReboot("Schedule removed");
+    } else {
+      setMessage("Schedule removed");
+      await loadSchedules();
+    }
   } catch (err) {
     setMessage("Remove failed: " + (err?.message || ""), "error");
   }

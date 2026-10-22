@@ -26,7 +26,6 @@ _CTRL = None
 _FSM = None
 _LED = None
 _BTN = None
-_CRON_ARMED = False   # True once the cron Timer1 has been armed this boot (see _ensure_cron)
 
 
 def _fsm():
@@ -276,41 +275,31 @@ def _node_clock():
         return None
 
 
-def _ensure_cron():
-    """Make sure the built-in cron (Timer1) runs against the current crontasks.
+def _apply_schedule_change():
+    """Activate a crontasks change the way the built-in /config Scheduler does:
+    ensure cron=True, then schedule a soft reboot so the cron Timer1 is recreated
+    at boot against the FULL crontasks.
 
-    The micrOS scheduler Timer1 is normally created only at boot, and only if
-    `crontasks != 'n/a'` at that moment. So a schedule added at runtime would not
-    fire until the next reboot. We fix that by:
-      1) turning the `cron` config flag on (persistent), and
-      2) (re)initialising the cron timer now via Interrupts.enableCron().
-    Best-effort: never raises (e.g. on the CPython test host where machine/
-    Interrupts are unavailable). Returns True if the timer was (re)armed.
+    Why reboot (and not a runtime Interrupts.enableCron()): the built-in cron
+    timer only reliably runs the multi-block (`;;`) crontasks when it is created
+    at boot. Re-arming it at runtime works for a single block but not for several
+    blocks (verified on the ESP32-S3 node; the stock /config UI also soft-reboots
+    on save). Returns True if a reboot was scheduled.
     """
     try:
         from Config import cfgget, cfgput
         if not cfgget("cron"):
-            cfgput("cron", True)                 # persist so it also survives reboots
-        if str(cfgget("crontasks")).lower() == "n/a":
-            return False                         # nothing to run; timer stays as-is
-        # Arm the Timer1 cron ONCE per boot. Re-initialising Timer(1) several times
-        # in quick succession (e.g. the UI adding several schedules back-to-back)
-        # leaves the timer dead on ESP32-S3 -> nothing fires. We don't need to
-        # re-arm anyway: scheduler() reads a fresh cfgget('crontasks') on every
-        # tick, so once the timer runs, later add/remove take effect automatically.
-        global _CRON_ARMED
-        if _CRON_ARMED:
-            return True
-        import Interrupts
-        # enableCron()'s timer callback refers to module-global `scheduler`, which
-        # Interrupts imports ONLY if cron was already True at boot. If cron was off
-        # at boot, that global is missing -> the timer fires but the callback dies
-        # silently (NameError), so nothing runs. Inject it before arming.
-        if not hasattr(Interrupts, "scheduler"):
-            from Scheduler import scheduler as _sched
-            Interrupts.scheduler = _sched
-        Interrupts.enableCron()                  # Timer(1).init - arm once
-        _CRON_ARMED = True
+            cfgput("cron", True)                 # persist; cron runs the crontasks
+        from Common import micro_task
+        from machine import soft_reset
+
+        @micro_task("aqua.reboot", _wrap=True)
+        async def _soft_reboot(tag):
+            with micro_task(tag) as my_task:
+                await my_task.feed(1200)          # let the REST response flush first
+                soft_reset()
+
+        _soft_reboot()
         return True
     except Exception:
         return False
@@ -351,8 +340,8 @@ def schedule_add(days="*", hour=6, minute=0, volume_l=1):
     """
     new_cron = scheduler_cfg.add_schedules(days, hour=hour, minute=minute, volume_l=volume_l)
     ok = scheduler_cfg.set_crontasks(new_cron)
-    armed = _ensure_cron()
-    return {"state": bool(ok), "crontasks": new_cron, "cron_armed": armed,
+    reboot = _apply_schedule_change()            # activates via soft reboot
+    return {"state": bool(ok), "crontasks": new_cron, "reboot": reboot,
             "schedules": scheduler_cfg.list_schedules(new_cron)}
 
 
@@ -363,8 +352,8 @@ def schedule_remove(index=0):
     """
     new_cron = scheduler_cfg.remove_schedule(int(index))
     ok = scheduler_cfg.set_crontasks(new_cron)
-    armed = _ensure_cron()
-    return {"state": bool(ok), "crontasks": new_cron, "cron_armed": armed,
+    reboot = _apply_schedule_change()            # activates via soft reboot
+    return {"state": bool(ok), "crontasks": new_cron, "reboot": reboot,
             "schedules": scheduler_cfg.list_schedules(new_cron)}
 
 
