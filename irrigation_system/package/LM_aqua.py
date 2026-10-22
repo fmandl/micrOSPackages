@@ -26,6 +26,7 @@ _CTRL = None
 _FSM = None
 _LED = None
 _BTN = None
+_CRON_ARMED = False   # True once the cron Timer1 has been armed this boot (see _ensure_cron)
 
 
 def _fsm():
@@ -292,6 +293,14 @@ def _ensure_cron():
             cfgput("cron", True)                 # persist so it also survives reboots
         if str(cfgget("crontasks")).lower() == "n/a":
             return False                         # nothing to run; timer stays as-is
+        # Arm the Timer1 cron ONCE per boot. Re-initialising Timer(1) several times
+        # in quick succession (e.g. the UI adding several schedules back-to-back)
+        # leaves the timer dead on ESP32-S3 -> nothing fires. We don't need to
+        # re-arm anyway: scheduler() reads a fresh cfgget('crontasks') on every
+        # tick, so once the timer runs, later add/remove take effect automatically.
+        global _CRON_ARMED
+        if _CRON_ARMED:
+            return True
         import Interrupts
         # enableCron()'s timer callback refers to module-global `scheduler`, which
         # Interrupts imports ONLY if cron was already True at boot. If cron was off
@@ -300,7 +309,8 @@ def _ensure_cron():
         if not hasattr(Interrupts, "scheduler"):
             from Scheduler import scheduler as _sched
             Interrupts.scheduler = _sched
-        Interrupts.enableCron()                  # idempotent: Timer(1).init re-arms
+        Interrupts.enableCron()                  # Timer(1).init - arm once
+        _CRON_ARMED = True
         return True
     except Exception:
         return False
