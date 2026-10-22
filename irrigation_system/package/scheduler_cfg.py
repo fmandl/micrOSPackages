@@ -136,6 +136,23 @@ def add_schedule(days="*", hour=6, minute=0, volume_l=1.0, crontasks=None):
     return join_blocks(blocks)
 
 
+def add_schedules(days_list, hour=6, minute=0, volume_l=1.0, crontasks=None):
+    """
+    Append one block per weekday field in `days_list` (list or comma string),
+    all with the same time/volume, in a SINGLE crontasks write.
+    This avoids the back-to-back schedule_add bursts that destabilise the
+    built-in cron timer. Returns the new crontasks string.
+    """
+    if crontasks is None:
+        crontasks = get_crontasks()
+    if isinstance(days_list, str):
+        days_list = [d.strip() for d in days_list.split(",") if d.strip()]
+    blocks = split_blocks(crontasks)
+    for days in (days_list or ["*"]):
+        blocks.append(compose_block(days=days, hour=hour, minute=minute, volume_l=volume_l))
+    return join_blocks(blocks)
+
+
 def remove_schedule(index, crontasks=None):
     """
     Remove the Nth irrigation (aqua) block (0-based over aqua blocks only).

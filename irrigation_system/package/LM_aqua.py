@@ -339,13 +339,17 @@ def _cron_enabled():
 
 def schedule_add(days="*", hour=6, minute=0, volume_l=1):
     """
-    Add a timed irrigation schedule.
-    - days: '*' (every day), a single 0..6 (0=Mon), or a range like '0-4'
-    - hour/minute: time of day; volume_l: Total litres to dispense
+    Add one or more timed irrigation schedules in a SINGLE write.
+    - days: a weekday field, or several comma-separated fields in one call:
+        '*' / '0-6' (every day), a single '0'..'6' (0=Mon), a range '0-4',
+        or a mix like '0,2-3,5' (Mon + Wed-Thu + Sat) -> one block each.
+      Passing all days at once (instead of several back-to-back schedule_add
+      calls) keeps the built-in cron timer stable.
+    - hour/minute: time of day; volume_l: Total litres to dispense.
     Writes the crontasks config (persistent); the built-in Scheduler runs it.
     Future: sun-tag timestamps (sunrise/sunset+/-min) and manual/time-capped runs.
     """
-    new_cron = scheduler_cfg.add_schedule(days=days, hour=hour, minute=minute, volume_l=volume_l)
+    new_cron = scheduler_cfg.add_schedules(days, hour=hour, minute=minute, volume_l=volume_l)
     ok = scheduler_cfg.set_crontasks(new_cron)
     armed = _ensure_cron()
     return {"state": bool(ok), "crontasks": new_cron, "cron_armed": armed,

@@ -1131,16 +1131,16 @@ async function addSchedule(event) {
   const btn = byId("schedAddBtn");
   if (btn) btn.disabled = true;
   try {
-    // Non-continuous day selections become several schedules (one per block).
-    let lastRes = null;
-    for (const days of ranges) {
-      lastRes = await aquaCommand("schedule_add", { days, hour, minute, volume_l: volume });
-    }
+    // Send ALL day blocks in ONE call (comma-separated) so the node writes the
+    // config once and arms the cron timer once — back-to-back adds destabilise it.
+    const res = await aquaCommand("schedule_add", {
+      days: ranges.join(","), hour, minute, volume_l: volume,
+    });
     setMessage(ranges.length > 1 ? `Added ${ranges.length} schedules` : "Schedule added");
     resetScheduleForm();
     await loadSchedules();
-    if (lastRes && typeof lastRes.cron_armed !== "undefined") {
-      renderSchedulerStatus(true, lastRes.cron_armed);   // reflect the just-armed state
+    if (res && typeof res.cron_armed !== "undefined") {
+      renderSchedulerStatus(true, res.cron_armed);
     }
   } catch (err) {
     setMessage("Add failed: " + (err?.message || ""), "error");
