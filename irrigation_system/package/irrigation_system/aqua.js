@@ -1037,9 +1037,34 @@ async function loadSchedules() {
     const res = await aquaCommand("schedule_list");
     renderScheduleList(res?.schedules);
     renderNodeClock(res?.now);
+    renderSchedulerStatus(res?.cron_enabled);
   } catch (err) {
     // best-effort; keep the panel usable even if the node is briefly unreachable
   }
+}
+
+// Scheduler status line. `enabled` = cron flag (from schedule_list);
+// `armed` (optional, from add/remove) = the Timer1 was (re)started at runtime.
+function renderSchedulerStatus(enabled, armed) {
+  const el = byId("schedulerStatus");
+  if (!el) return;
+  if (armed === false) {
+    el.className = "scheduler-status is-warn";
+    el.textContent = "\u26A0 Scheduler not armed \u2014 reboot the node once to activate schedules";
+    return;
+  }
+  if (enabled === false) {
+    el.className = "scheduler-status is-warn";
+    el.textContent = "\u26A0 Scheduler is off \u2014 add a schedule to enable it";
+    return;
+  }
+  if (enabled || armed) {
+    el.className = "scheduler-status is-ok";
+    el.textContent = "\u2713 Scheduler active";
+    return;
+  }
+  el.className = "scheduler-status";
+  el.textContent = "";
 }
 
 // Show the node's local clock so it's clear what the scheduler works against.
@@ -1107,12 +1132,16 @@ async function addSchedule(event) {
   if (btn) btn.disabled = true;
   try {
     // Non-continuous day selections become several schedules (one per block).
+    let lastRes = null;
     for (const days of ranges) {
-      await aquaCommand("schedule_add", { days, hour, minute, volume_l: volume });
+      lastRes = await aquaCommand("schedule_add", { days, hour, minute, volume_l: volume });
     }
     setMessage(ranges.length > 1 ? `Added ${ranges.length} schedules` : "Schedule added");
     resetScheduleForm();
     await loadSchedules();
+    if (lastRes && typeof lastRes.cron_armed !== "undefined") {
+      renderSchedulerStatus(true, lastRes.cron_armed);   // reflect the just-armed state
+    }
   } catch (err) {
     setMessage("Add failed: " + (err?.message || ""), "error");
     await loadSchedules();   // reflect any partial additions

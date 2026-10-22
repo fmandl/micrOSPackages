@@ -307,7 +307,17 @@ def schedule_list():
     `now` carries the node's local clock so the UI can show what the scheduler
     works against.
     """
-    return {"schedules": scheduler_cfg.list_schedules(), "now": _node_clock()}
+    return {"schedules": scheduler_cfg.list_schedules(), "now": _node_clock(),
+            "cron_enabled": _cron_enabled()}
+
+
+def _cron_enabled():
+    """Whether the built-in cron flag is on (scheduler can run). Best-effort."""
+    try:
+        from Config import cfgget
+        return bool(cfgget("cron"))
+    except Exception:
+        return None
 
 
 def schedule_add(days="*", hour=6, minute=0, volume_l=1):

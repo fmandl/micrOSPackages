@@ -1190,3 +1190,7 @@ select {
   font-size: 12px;
   font-variant-numeric: tabular-nums;
 }
+
+.scheduler-status { font-size: 12px; font-weight: 650; min-height: 16px; }
+.scheduler-status.is-ok { color: #8ee88e; }
+.scheduler-status.is-warn { color: var(--amber); }
