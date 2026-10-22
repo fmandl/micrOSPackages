@@ -275,6 +275,30 @@ def _node_clock():
         return None
 
 
+def _ensure_cron():
+    """Make sure the built-in cron (Timer1) runs against the current crontasks.
+
+    The micrOS scheduler Timer1 is normally created only at boot, and only if
+    `crontasks != 'n/a'` at that moment. So a schedule added at runtime would not
+    fire until the next reboot. We fix that by:
+      1) turning the `cron` config flag on (persistent), and
+      2) (re)initialising the cron timer now via Interrupts.enableCron().
+    Best-effort: never raises (e.g. on the CPython test host where machine/
+    Interrupts are unavailable). Returns True if the timer was (re)armed.
+    """
+    try:
+        from Config import cfgget, cfgput
+        if not cfgget("cron"):
+            cfgput("cron", True)                 # persist so it also survives reboots
+        if str(cfgget("crontasks")).lower() == "n/a":
+            return False                         # nothing to run; timer stays as-is
+        from Interrupts import enableCron        # idempotent: Timer(1).init re-arms
+        enableCron()
+        return True
+    except Exception:
+        return False
+
+
 def schedule_list():
     """
     List irrigation schedules parsed from the node's crontasks.
@@ -296,7 +320,8 @@ def schedule_add(days="*", hour=6, minute=0, volume_l=1):
     """
     new_cron = scheduler_cfg.add_schedule(days=days, hour=hour, minute=minute, volume_l=volume_l)
     ok = scheduler_cfg.set_crontasks(new_cron)
-    return {"state": bool(ok), "crontasks": new_cron,
+    armed = _ensure_cron()
+    return {"state": bool(ok), "crontasks": new_cron, "cron_armed": armed,
             "schedules": scheduler_cfg.list_schedules(new_cron)}
 
 
@@ -307,7 +332,8 @@ def schedule_remove(index=0):
     """
     new_cron = scheduler_cfg.remove_schedule(int(index))
     ok = scheduler_cfg.set_crontasks(new_cron)
-    return {"state": bool(ok), "crontasks": new_cron,
+    armed = _ensure_cron()
+    return {"state": bool(ok), "crontasks": new_cron, "cron_armed": armed,
             "schedules": scheduler_cfg.list_schedules(new_cron)}
 
 
