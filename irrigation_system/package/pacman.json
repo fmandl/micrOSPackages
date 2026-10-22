@@ -1,7 +1,7 @@
 {
     "versions": {
         "packager": "0.2.0",
-        "package": "0.5.5"
+        "package": "0.5.6"
     },
     "url": "github:fmandl/micrOSPackages/irrigation_system",
     "layout": {

@@ -999,6 +999,11 @@ select {
     flex-direction: column;
   }
 
+  .topbar-clock {
+    margin: 4px 0 0;
+    align-items: flex-start;
+  }
+
   h1 {
     font-size: 24px;
   }
@@ -1185,10 +1190,27 @@ select {
 .sched-colon { font-weight: bold; }
 .schedule-add-form .primary { width: 100%; }
 
-.node-clock {
-  color: var(--muted);
-  font-size: 12px;
+.topbar-clock {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  margin: 0 auto;                 /* centre it in the space-between header */
+  line-height: 1.1;
+}
+.topbar-clock .clock-time {
+  font-size: 26px;
+  font-weight: 300;
+  letter-spacing: 0.06em;
   font-variant-numeric: tabular-nums;
+  color: var(--text);
+}
+.topbar-clock .clock-meta {
+  margin-top: 2px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--muted);
 }
 
 .scheduler-status { font-size: 12px; font-weight: 650; min-height: 16px; }

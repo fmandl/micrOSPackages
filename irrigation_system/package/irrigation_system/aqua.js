@@ -1084,16 +1084,18 @@ function renderNodeClock(now) {
 }
 
 function paintNodeClock() {
-  const el = byId("nodeClock");
-  if (!el) return;
+  const timeEl = byId("nodeClockTime");
+  const metaEl = byId("nodeClockMeta");
+  if (!timeEl) return;
   const nc = state.nodeClock;
-  if (!nc) { el.textContent = "Node time: unavailable"; return; }
+  if (!nc) { timeEl.textContent = "--:--:--"; if (metaEl) metaEl.textContent = ""; return; }
   const d = new Date(nc.base + (Date.now() - nc.at));
   const pad = (n) => String(n).padStart(2, "0");
-  const iso = `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
-  // JS weekday: 0=Sun..6=Sat -> convert to node's 0=Mon..6=Sun.
-  const wdIdx = (d.getDay() + 6) % 7;
-  el.textContent = `Node time: ${iso} (${SCHED_DAY_LABELS[wdIdx]})`;
+  timeEl.textContent = `${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
+  if (metaEl) {
+    const wdIdx = (d.getDay() + 6) % 7;   // JS 0=Sun..6=Sat -> node 0=Mon..6=Sun
+    metaEl.textContent = `${SCHED_DAY_LABELS[wdIdx]} ${pad(d.getDate())}.${pad(d.getMonth() + 1)}.`;
+  }
 }
 
 // Collect selected days as a list of crontasks weekday fields, one per
